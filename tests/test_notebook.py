@@ -74,6 +74,38 @@ def test_run_cell_stops_if_drive_cannot_refresh(monkeypatch):
         exec("".join(notebook["cells"][5]["source"]), scope)
 
 
+def test_processing_choice_switches_cli_flags_without_conflicting_modes(monkeypatch):
+    notebook = json.loads(
+        (Path(__file__).parents[1] / "colab/Run_MangaJaNai.ipynb").read_text(encoding="utf-8")
+    )
+    form = "".join(notebook["cells"][1]["source"])
+    run = "".join(notebook["cells"][5]["source"])
+    calls = []
+
+    def live(args, **kwargs):
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0)
+
+    monkeypatch.setattr(
+        runpy, "run_path", lambda path: {"run_live": live, "refresh_drive": lambda path: None}
+    )
+    scope = {"Path": Path}
+    for mode, expected in (
+        ("Chỉ Upscale ảnh chưa làm", (True, False)),
+        ("Upscale lại tất cả ảnh", (False, True)),
+        ("Chỉ Upscale ảnh chưa làm", (True, False)),
+    ):
+        source = form.replace('Chạy = "Chỉ Upscale ảnh chưa làm"', f'Chạy = "{mode}"')
+        exec(source, scope)
+        exec(run, scope)
+        assert (scope["RESUME"], scope["OVERWRITE"]) == expected
+        assert ("--resume" in calls[-1], "--overwrite" in calls[-1]) == expected
+        assert ("--no-resume" in calls[-1]) is expected[1]
+    invalid = form.replace('Chạy = "Chỉ Upscale ảnh chưa làm"', 'Chạy = "Không hợp lệ"')
+    with pytest.raises(KeyError):
+        exec(invalid, scope)
+
+
 def test_every_form_field_has_help_and_internal_names_are_hidden():
     notebook = json.loads(
         (Path(__file__).parents[1] / "colab/Run_MangaJaNai.ipynb").read_text(encoding="utf-8")
@@ -84,9 +116,11 @@ def test_every_form_field_has_help_and_internal_names_are_hidden():
         assert not any(key in line and "# @param" in line for line in form.splitlines())
     assert "không nhập link chia sẻ" in form
     fields = [line.split("=", 1)[0].strip() for line in form.splitlines() if "# @param" in line]
-    assert len(fields) == 10
-    assert all(field.isidentifier() and not field.isascii() for field in fields)
-    assert "Bỏ_qua_ảnh_đã_làm_xong" in fields
+    assert len(fields) == 9
+    assert all(field.isidentifier() and "_" not in field for field in fields)
+    assert "Chạy" in fields
+    assert "Bỏ_qua_ảnh_đã_làm_xong" not in form
+    assert "Làm_lại_ảnh_cũ" not in form
     for removed in ("Địa chỉ chương trình", "Nhánh chương trình", "Mã phiên bản", "Bo_qua_"):
         assert removed.casefold() not in form.casefold()
     scope = {}

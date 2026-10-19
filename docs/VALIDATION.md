@@ -6,7 +6,7 @@ Ngày chạy: 2026-10-19. Không dùng kết quả giả lập làm bằng chứ
 
 - Windows: Python 3.12.6, NumPy 2.1.2, OpenCV 4.12.0, Pillow 10.4.0, Rich 13.9.2, libvips 8.16.1.
 - Linux/WSL: Python 3.12.3, môi trường riêng cài từ `pyproject.toml` + pyvips 3.0.0/pyvips-binary 8.16.1.
-- `python -m pytest -q`: **133 passed** trên Linux; **131 passed, 2 skipped** trên Windows. Hai bài kiểm tra gửi tín hiệu dừng cho cả nhóm tiến trình chỉ chạy trên Linux (môi trường Colab).
+- `python -m pytest -q`: **134 passed** trên Linux; **132 passed, 2 skipped** trên Windows. Hai bài kiểm tra gửi tín hiệu dừng cho cả nhóm tiến trình chỉ chạy trên Linux (môi trường Colab).
 - `ruff check manga_colab tests scripts`: pass.
 - `bash -n scripts/setup_colab.sh scripts/check_environment.sh`: pass trên Linux.
 - Notebook: sáu code cells parse được bằng Python AST, không có secrets/token, không có inference engine trong notebook.
@@ -32,6 +32,13 @@ Phạm vi test: grayscale/color, pure B/W/uint8 overflow, threshold, mọi ranh 
 - Kiểm tra Cell 5 tạo lại tham số và gọi làm mới mỗi lượt; đường dẫn ngoài Drive không làm mới kết nối. Kiểm tra log quét có tổng số ảnh và không gắn tên ảnh cuối.
 - Tái lập `001.jpg`, `005.jpg`, thêm `017.jpg` bằng test backend: lượt sau **3 ảnh, 1 thành công, 2 bỏ qua**; byte và thời gian sửa hai kết quả cũ không đổi. Đây là kiểm tra quét/resume trên filesystem cục bộ, không phải thử tải ảnh qua trang Google Drive.
 - Không chạy lại GPU inference cho thay đổi giao diện/kết nối này. Kết quả inference thật trước đó được giữ bên dưới; thuật toán AI không thay đổi.
+
+## Lựa chọn xử lý ảnh cũ, phiên bản 0.1.3
+
+- Gộp hai checkbox trái ngược thành một danh sách chọn: **Chỉ Upscale ảnh chưa làm** hoặc **Upscale lại tất cả ảnh**. Mặc định giữ kết quả cũ.
+- Biểu mẫu còn 9 ô với nhãn ngắn không có dấu gạch dưới; giữ hướng dẫn tiếng Việt đầy đủ ngay phía trên mỗi ô.
+- Thực thi Cell 1 và Cell 5 khi đổi qua lại giữa hai lựa chọn trong cùng phiên: kiểm tra cả giá trị cấu hình và tham số CLI, không có trường hợp bật đồng thời resume và overwrite. Giá trị ngoài hai lựa chọn bị từ chối. Các bài kiểm tra này dùng test double cho CLI, không chạy AI hay kết nối Drive.
+- Chưa kiểm tra trực tiếp cách hiển thị trong giao diện Colab. Không chạy lại GPU inference vì thay đổi chỉ nằm ở lựa chọn trong notebook.
 
 ## Smoke test inference thật
 

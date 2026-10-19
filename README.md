@@ -35,21 +35,23 @@ Mỗi “bước” là một ô có nút ▶ ở bên trái trong notebook (cò
 
 | Ô cần điền ở Bước 1 | Cách chọn |
 |---|---|
-| Thư mục ảnh gốc | Đường dẫn đến thư mục chứa ảnh trên Drive, không phải link chia sẻ. Chương trình giữ nguyên ảnh gốc. |
-| Thư mục ảnh đã Upscale | Nơi lưu kết quả, phải khác thư mục ảnh gốc. Chưa có thì chương trình tự tạo. |
-| Thư mục lưu AI | Nơi giữ các tệp AI cần cho chương trình. Để trên Drive để lần sau không phải tải lại. |
-| Upscale gấp | `2` nghĩa là 1000 × 1500 thành 2000 × 3000. Có thể dùng từ `1` đến `4`, kể cả `1.5`. |
-| Định dạng ảnh | Chọn `png` nếu chưa biết chọn gì. |
-| Bỏ qua ảnh đã làm xong | Nên bật để tiếp tục công việc còn lại sau khi thêm ảnh hoặc bị ngắt. |
-| Làm lại ảnh cũ | Thường để tắt. Nếu bật, ảnh kết quả cũ sẽ được thay thế, kể cả khi đã bật bỏ qua ảnh cũ. |
+| Ảnh | Đường dẫn đến thư mục chứa ảnh gốc trên Drive, không phải link chia sẻ. Chương trình giữ nguyên ảnh gốc. |
+| Lưu | Thư mục lưu ảnh đã Upscale, phải khác thư mục ảnh gốc. Chưa có thì chương trình tự tạo. |
+| AI | Nơi giữ các tệp AI cần cho chương trình. Để trên Drive để lần sau không phải tải lại. |
+| Upscale | `2` nghĩa là 1000 × 1500 thành 2000 × 3000. Có thể dùng từ `1` đến `4`, kể cả `1.5`. |
+| Đuôi | Định dạng ảnh kết quả. Chọn `png` nếu chưa biết chọn gì. |
+| Chạy | Mặc định **Chỉ Upscale ảnh chưa làm**: giữ kết quả đã hoàn tất. Chọn **Upscale lại tất cả ảnh** khi muốn làm lại và thay thế kết quả cũ. Chỉ chọn được một trong hai cách. |
+| Thử | Bật để thử lại những ảnh bị lỗi ở lần trước, sau khi đã xử lý nguyên nhân. |
+| Xem | Bật để chỉ xem danh sách, chưa chạy Upscale. |
+| Hiện | Mức thông báo trên màn hình. Thường giữ **Thông thường** để thấy tiến độ và kết quả. |
 
 Nếu chưa biết đường dẫn thư mục: sau khi kết nối Drive ở Bước 2, mở bảng **Files** bên trái → **drive → MyDrive**, bấm chuột phải vào thư mục → **Copy path**. Dán vào ô tương ứng ở Bước 1, bấm ▶ Bước 1 rồi chạy lại Bước 2.
 
-**Khi thêm ảnh mới vào cùng thư mục:** đợi tải lên Drive xong rồi chạy lại **Bước 5**, sau đó **Bước 6**. Bật **Bỏ qua ảnh đã làm xong**, tắt **Làm lại ảnh cũ**. Chương trình đọc lại ảnh cũ để kiểm tra kết quả, nhưng không chạy AI lại cho ảnh đã hoàn tất và còn hợp lệ. Ảnh thêm trong khi đang chạy sẽ được nhận ở lượt kế tiếp. Nếu thay đổi các ô ở Bước 1, nhớ chạy lại Bước 1 để áp dụng; nếu Colab bị đặt lại thì chạy lại cả sáu bước.
+**Khi thêm ảnh mới vào cùng thư mục:** đợi tải lên Drive xong rồi chạy lại **Bước 5**, sau đó **Bước 6**. Giữ **Chạy → Chỉ Upscale ảnh chưa làm**. Chương trình đọc lại ảnh cũ để kiểm tra kết quả, nhưng không chạy AI lại cho ảnh đã hoàn tất và còn hợp lệ. Ảnh thêm trong khi đang chạy sẽ được nhận ở lượt kế tiếp. Nếu thay đổi các ô ở Bước 1, nhớ chạy lại Bước 1 để áp dụng; nếu Colab bị đặt lại thì chạy lại cả sáu bước.
 
 Bước 5 lưu dữ liệu còn chờ lên Drive rồi kết nối lại trước mỗi lượt, để xử lý tình trạng Colab vẫn thấy danh sách cũ khi bạn tải ảnh qua trang Google Drive. Nếu Google hỏi quyền kết nối lại, làm theo hướng dẫn trên màn hình. Không cần cài lại ở Bước 4. Nếu chưa lưu được dữ liệu lên Drive, chương trình dừng và báo lỗi, không ép kết nối lại. Việc kết nối lại ảnh hưởng tới toàn bộ Drive trong phiên Colab, vì vậy không chạy tác vụ khác đang ghi Drive cùng lúc. Cách xử lý này đã kiểm tra thứ tự gọi và các nhánh lỗi; chưa xác minh trên một phiên Drive thật.
 
-Trong phần kỹ thuật bên dưới, `INPUT_DIR`, `OUTPUT_DIR`, `RESUME`, `OVERWRITE` lần lượt tương ứng với **Thư mục ảnh gốc**, **Thư mục ảnh đã Upscale**, **Bỏ qua ảnh đã làm xong**, **Làm lại ảnh cũ**.
+Trong phần kỹ thuật bên dưới, `INPUT_DIR` và `OUTPUT_DIR` tương ứng với ô **Ảnh** và **Lưu**. Lựa chọn **Chỉ Upscale ảnh chưa làm** bật `RESUME`, tắt `OVERWRITE`; lựa chọn **Upscale lại tất cả ảnh** làm ngược lại. Biểu mẫu không có hai ô bật/tắt độc lập cho hai cách này.
 
 Khi logic thay đổi, sửa source trên GitHub rồi chạy lại cell 3–6. Không cần sửa processing code trong notebook.
 
