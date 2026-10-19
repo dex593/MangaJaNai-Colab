@@ -123,7 +123,7 @@ def scan_progress(console: Console, quiet: bool = False) -> AppProgress:
         TextColumn("Quét ảnh", style="cyan"),
         BarColumn(),
         MofNCompleteColumn(),
-        TextColumn("{task.fields[detail]}", markup=False),
+        TextColumn("ảnh"),
         console=console,
         disable=quiet,
         refresh_per_second=2,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import posixpath
 import signal
 import subprocess
 import sys
@@ -13,6 +14,38 @@ from typing import Any
 
 EVENT_PREFIX = "@@MANGA_COLAB_UI@@"
 STEP_PREFIX = "@@MANGA_COLAB_STEP@@"
+
+
+def refresh_drive(input_dir: str) -> None:
+    """Refresh the mounted Drive from the notebook kernel before listing images."""
+    path = posixpath.normpath(input_dir)
+    if path != "/content/drive" and not path.startswith("/content/drive/"):
+        return
+    from google.colab import drive
+
+    print("Đang lưu dữ liệu còn chờ lên Google Drive…", flush=True)
+    try:
+        drive.flush_and_unmount(timeout_ms=60_000)
+    except Exception as exc:
+        raise RuntimeError(
+            "Chưa lưu xong dữ liệu lên Drive. Đã dừng để bảo vệ kết quả; "
+            "chờ Drive ổn định rồi chạy lại Bước 5. "
+            "Không ngắt kết nối hoặc đặt lại Colab lúc này."
+        ) from exc
+    print("Đang kết nối lại Drive để tìm ảnh mới…", flush=True)
+    try:
+        drive.mount("/content/drive", force_remount=True)
+    except Exception as exc:
+        raise RuntimeError(
+            "Chưa kết nối lại được Google Drive. Chạy Bước 2 để kết nối, "
+            "rồi chạy lại Bước 5."
+        ) from exc
+    if not Path(input_dir).is_dir():
+        raise FileNotFoundError(
+            f"Không tìm thấy thư mục ảnh gốc: {input_dir}. "
+            "Kiểm tra tài khoản Drive và đường dẫn ở Bước 1."
+        )
+    print("✓ Đã kết nối lại Drive. Bắt đầu kiểm tra ảnh.", flush=True)
 
 
 def show_event(event: dict, displays: dict) -> None:

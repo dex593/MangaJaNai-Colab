@@ -6,7 +6,7 @@ Ngày chạy: 2026-10-19. Không dùng kết quả giả lập làm bằng chứ
 
 - Windows: Python 3.12.6, NumPy 2.1.2, OpenCV 4.12.0, Pillow 10.4.0, Rich 13.9.2, libvips 8.16.1.
 - Linux/WSL: Python 3.12.3, môi trường riêng cài từ `pyproject.toml` + pyvips 3.0.0/pyvips-binary 8.16.1.
-- `python -m pytest -q`: **123 passed** trên Linux; **121 passed, 2 skipped** trên Windows. Hai bài kiểm tra gửi tín hiệu dừng cho cả nhóm tiến trình chỉ chạy trên Linux (môi trường Colab).
+- `python -m pytest -q`: **133 passed** trên Linux; **131 passed, 2 skipped** trên Windows. Hai bài kiểm tra gửi tín hiệu dừng cho cả nhóm tiến trình chỉ chạy trên Linux (môi trường Colab).
 - `ruff check manga_colab tests scripts`: pass.
 - `bash -n scripts/setup_colab.sh scripts/check_environment.sh`: pass trên Linux.
 - Notebook: sáu code cells parse được bằng Python AST, không có secrets/token, không có inference engine trong notebook.
@@ -24,6 +24,14 @@ Phạm vi test: grayscale/color, pure B/W/uint8 overflow, threshold, mọi ranh 
 - Chạy lại bằng **GPU và hai model 2x thật** nêu dưới: lượt đầu 2 thành công; thêm một ảnh rồi chạy lại được **1 thành công, 2 bỏ qua**, output cũ giữ nguyên cả byte và mtime. Toàn bộ lần chạy đi qua kênh truyền log mới.
 - Render bảng log HTML của lần chạy thật trong Chromium và xem ảnh chụp để kiểm tra bố cục, tiếng Việt, độ dễ đọc. Chưa kiểm tra trực tiếp trong giao diện Colab.
 - Kiểm tra notebook có sáu cell, các ô dùng tên dễ hiểu và ánh xạ đúng sang tham số CLI; Bước 5 tạo lại tham số mỗi lần chạy và gọi hàm truyền log.
+
+## Biểu mẫu và nhận ảnh mới, phiên bản 0.1.2
+
+- Biểu mẫu còn 10 ô, tên tiếng Việt có dấu. Bỏ các ô địa chỉ chương trình, nhánh, mã phiên bản và thiết lập kỹ thuật. Kiểm tra cả sáu cell bằng Python AST và thực thi cell cấu hình để xác minh các giá trị mặc định.
+- Bước 5 gọi hàm làm mới Drive trong kernel trước khi chạy CLI. Dùng API công khai `flush_and_unmount` rồi `mount`; đối chiếu [source Google Colab](https://github.com/googlecolab/colabtools/blob/main/google/colab/drive.py). Nếu lưu dữ liệu thất bại, không gọi ép kết nối lại; nếu kết nối thất bại hoặc không thấy thư mục, không chạy Upscale. Các nhánh này kiểm tra bằng test double, **chưa chứng minh Drive thật hết trễ cập nhật**.
+- Kiểm tra Cell 5 tạo lại tham số và gọi làm mới mỗi lượt; đường dẫn ngoài Drive không làm mới kết nối. Kiểm tra log quét có tổng số ảnh và không gắn tên ảnh cuối.
+- Tái lập `001.jpg`, `005.jpg`, thêm `017.jpg` bằng test backend: lượt sau **3 ảnh, 1 thành công, 2 bỏ qua**; byte và thời gian sửa hai kết quả cũ không đổi. Đây là kiểm tra quét/resume trên filesystem cục bộ, không phải thử tải ảnh qua trang Google Drive.
+- Không chạy lại GPU inference cho thay đổi giao diện/kết nối này. Kết quả inference thật trước đó được giữ bên dưới; thuật toán AI không thay đổi.
 
 ## Smoke test inference thật
 

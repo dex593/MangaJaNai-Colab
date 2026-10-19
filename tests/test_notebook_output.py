@@ -10,7 +10,7 @@ from rich.text import Text
 
 from manga_colab import notebook
 from manga_colab.display import AppProgress, NotebookConsole
-from manga_colab.logger import BatchProgress
+from manga_colab.logger import BatchProgress, scan_progress
 
 
 def test_notebook_updates_existing_html_display(monkeypatch):
@@ -127,6 +127,20 @@ def test_rate_counts_successes_only(monkeypatch):
     now[0] = 14.0
     progress.advance(success=True)
     assert "0.250 ảnh/s" in progress.progress.tasks[0].fields["detail"]
+
+
+def test_scan_summary_has_count_without_last_filename(monkeypatch):
+    output = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", output)
+    with scan_progress(NotebookConsole()) as progress:
+        task = progress.add_task("scan", total=3, detail="001.jpg")
+        progress.update(task, completed=3, detail="017.jpg")
+    events = [
+        json.loads(line[len(notebook.EVENT_PREFIX) :]) for line in output.getvalue().splitlines()
+    ]
+    assert "3/3" in events[-1]["text"]
+    assert "ảnh" in events[-1]["text"]
+    assert ".jpg" not in events[-1]["text"]
 
 
 @pytest.mark.skipif(os.name != "posix", reason="Colab uses POSIX process-group SIGINT")

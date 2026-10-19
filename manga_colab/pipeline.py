@@ -48,15 +48,14 @@ def _run(config: Config, state: Path, started: float, dry_run: bool) -> int:
         "Đọc lại thư mục ảnh gốc: %s\nĐang kiểm tra danh sách; chưa bắt đầu Upscale.", config.input
     )
     with scan_progress(console, config.log_level == "quiet") as scanning:
-        task = scanning.add_task("scan", total=1, detail="Đang lấy danh sách file")
+        task = scanning.add_task("scan", total=0)
         plan = build_plan(
             config,
             workflow,
-            lambda done, total, name: scanning.update(
+            lambda done, total, _name: scanning.update(
                 task,
                 completed=done,
                 total=total,
-                detail=name,
             ),
         )
     atomic_json(state / "plan.json", [item.as_json() for item in plan])

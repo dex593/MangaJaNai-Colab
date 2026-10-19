@@ -117,6 +117,23 @@ def test_failed_continues_and_retry_failed(config, write_image, isolated_backend
     assert report(config)["summary"]["successful"] == 2
 
 
+def test_017_added_after_001_and_005_only_upscales_new_image(config, write_image, isolated_backend):
+    for name in ("001", "005"):
+        write_image(config.input / f"{name}.jpg")
+    assert pipeline.run(config) == 0
+    old = {
+        path: (path.read_bytes(), path.stat().st_mtime_ns)
+        for path in config.output.glob("*.png")
+    }
+    write_image(config.input / "017.jpg")
+    assert pipeline.run(config) == 0
+    summary = report(config)["summary"]
+    assert (summary["total"], summary["successful"], summary["skipped"]) == (3, 1, 2)
+    assert isolated_backend.calls == 3
+    assert (config.output / "017.png").is_file()
+    assert all((path.read_bytes(), path.stat().st_mtime_ns) == saved for path, saved in old.items())
+
+
 def test_stage_and_duplicate_names(config, write_image, isolated_backend):
     write_image(config.input / "one.jpg")
     write_image(config.input / "one.png")

@@ -4,6 +4,8 @@ import runpy
 import subprocess
 from pathlib import Path
 
+import pytest
+
 
 def test_launcher_syntax_and_no_credentials_or_engine():
     path = Path(__file__).parents[1] / "colab/Run_MangaJaNai.ipynb"
@@ -32,12 +34,15 @@ def test_run_cell_streams_and_rebuilds_arguments(monkeypatch):
     )
     code = ["".join(cell["source"]) for cell in notebook["cells"] if cell["cell_type"] == "code"]
     calls = []
+    refreshed = []
 
     def live(args, **kwargs):
         calls.append(args)
         return subprocess.CompletedProcess(args, 0)
 
-    monkeypatch.setattr(runpy, "run_path", lambda path: {"run_live": live})
+    monkeypatch.setattr(
+        runpy, "run_path", lambda path: {"run_live": live, "refresh_drive": refreshed.append}
+    )
     scope = {"Path": Path}
     exec(code[0], scope)
     exec(code[4], scope)
@@ -46,6 +51,27 @@ def test_run_cell_streams_and_rebuilds_arguments(monkeypatch):
     assert calls[0][calls[0].index("--input") + 1] != calls[1][calls[1].index("--input") + 1]
     assert "--resume" in calls[1]
     assert "--overwrite" not in calls[1]
+    assert refreshed == [calls[0][calls[0].index("--input") + 1], "/new/input 日本語"]
+
+
+def test_run_cell_stops_if_drive_cannot_refresh(monkeypatch):
+    notebook = json.loads(
+        (Path(__file__).parents[1] / "colab/Run_MangaJaNai.ipynb").read_text(encoding="utf-8")
+    )
+
+    def fail(path):
+        raise RuntimeError("Drive chưa lưu xong")
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Must not start scanning or AI after a Drive refresh error")
+
+    monkeypatch.setattr(
+        runpy, "run_path", lambda path: {"run_live": forbidden, "refresh_drive": fail}
+    )
+    scope = {"Path": Path}
+    exec("".join(notebook["cells"][1]["source"]), scope)
+    with pytest.raises(RuntimeError, match="Drive chưa lưu xong"):
+        exec("".join(notebook["cells"][5]["source"]), scope)
 
 
 def test_every_form_field_has_help_and_internal_names_are_hidden():
@@ -57,3 +83,15 @@ def test_every_form_field_has_help_and_internal_names_are_hidden():
     for key in ("INPUT_DIR", "OUTPUT_DIR", "RESUME", "OVERWRITE", "PIN_COMMIT"):
         assert not any(key in line and "# @param" in line for line in form.splitlines())
     assert "không nhập link chia sẻ" in form
+    fields = [line.split("=", 1)[0].strip() for line in form.splitlines() if "# @param" in line]
+    assert len(fields) == 10
+    assert all(field.isidentifier() and not field.isascii() for field in fields)
+    assert "Bỏ_qua_ảnh_đã_làm_xong" in fields
+    for removed in ("Địa chỉ chương trình", "Nhánh chương trình", "Mã phiên bản", "Bo_qua_"):
+        assert removed.casefold() not in form.casefold()
+    scope = {}
+    exec(form, scope)
+    assert scope["GITHUB_REPO"] == "https://github.com/dex593/MangaJaNai-Colab.git"
+    assert scope["BRANCH"] == "main"
+    assert scope["PIN_COMMIT"] == ""
+    assert scope["RESUME"] is True and scope["OVERWRITE"] is False

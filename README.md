@@ -24,7 +24,7 @@ flowchart LR
 
 1. Nhấn **Open in Colab**, chọn **Runtime → Change runtime type → GPU**, **Runtime Version: 2026.07 (Python 3.12)**. T4, L4 hoặc A100 đều được nếu Colab cấp GPU tương thích với PyTorch của runtime.
 2. Tạo thư mục `MyDrive/Manga/Input`, chép ảnh vào đó. Thư mục con được giữ nguyên.
-3. **Bước 1 — Chọn thư mục và cách Upscale:** nhập nơi chứa ảnh gốc, nơi lưu ảnh đã Upscale và số lần Upscale. Giữ các tùy chọn nâng cao như mặc định nếu chưa cần đổi. Bấm ▶ để áp dụng lựa chọn.
+3. **Bước 1 — Chọn thư mục và cách Upscale:** nhập nơi chứa ảnh gốc, nơi lưu ảnh đã Upscale và số lần Upscale. Các ô đều dùng tiếng Việt có dấu. Chương trình đã có sẵn địa chỉ tải và tự chọn cách xử lý; bạn không cần điền nhánh, mã phiên bản hay thông số kỹ thuật. Bấm ▶ để áp dụng lựa chọn.
 4. **Bước 2 — Kết nối Google Drive:** chọn tài khoản Google chứa ảnh và làm theo hướng dẫn cấp quyền trên màn hình.
 5. **Bước 3 — Tải bản chương trình mới nhất:** bấm ▶ và chờ báo hoàn tất. Không cần tài khoản GitHub hay mật khẩu.
 6. **Bước 4 — Chuẩn bị trước khi Upscale:** cài các thành phần cần thiết, kiểm tra card đồ họa và thư mục. Lần đầu có thể mất vài phút; chờ thông báo “Sẵn sàng”.
@@ -37,7 +37,7 @@ Mỗi “bước” là một ô có nút ▶ ở bên trái trong notebook (cò
 |---|---|
 | Thư mục ảnh gốc | Đường dẫn đến thư mục chứa ảnh trên Drive, không phải link chia sẻ. Chương trình giữ nguyên ảnh gốc. |
 | Thư mục ảnh đã Upscale | Nơi lưu kết quả, phải khác thư mục ảnh gốc. Chưa có thì chương trình tự tạo. |
-| Thư mục model AI | Nơi giữ các tệp AI cần cho chương trình. Để trên Drive để lần sau không phải tải lại. |
+| Thư mục lưu AI | Nơi giữ các tệp AI cần cho chương trình. Để trên Drive để lần sau không phải tải lại. |
 | Upscale gấp | `2` nghĩa là 1000 × 1500 thành 2000 × 3000. Có thể dùng từ `1` đến `4`, kể cả `1.5`. |
 | Định dạng ảnh | Chọn `png` nếu chưa biết chọn gì. |
 | Bỏ qua ảnh đã làm xong | Nên bật để tiếp tục công việc còn lại sau khi thêm ảnh hoặc bị ngắt. |
@@ -46,6 +46,8 @@ Mỗi “bước” là một ô có nút ▶ ở bên trái trong notebook (cò
 Nếu chưa biết đường dẫn thư mục: sau khi kết nối Drive ở Bước 2, mở bảng **Files** bên trái → **drive → MyDrive**, bấm chuột phải vào thư mục → **Copy path**. Dán vào ô tương ứng ở Bước 1, bấm ▶ Bước 1 rồi chạy lại Bước 2.
 
 **Khi thêm ảnh mới vào cùng thư mục:** đợi tải lên Drive xong rồi chạy lại **Bước 5**, sau đó **Bước 6**. Bật **Bỏ qua ảnh đã làm xong**, tắt **Làm lại ảnh cũ**. Chương trình đọc lại ảnh cũ để kiểm tra kết quả, nhưng không chạy AI lại cho ảnh đã hoàn tất và còn hợp lệ. Ảnh thêm trong khi đang chạy sẽ được nhận ở lượt kế tiếp. Nếu thay đổi các ô ở Bước 1, nhớ chạy lại Bước 1 để áp dụng; nếu Colab bị đặt lại thì chạy lại cả sáu bước.
+
+Bước 5 lưu dữ liệu còn chờ lên Drive rồi kết nối lại trước mỗi lượt, để xử lý tình trạng Colab vẫn thấy danh sách cũ khi bạn tải ảnh qua trang Google Drive. Nếu Google hỏi quyền kết nối lại, làm theo hướng dẫn trên màn hình. Không cần cài lại ở Bước 4. Nếu chưa lưu được dữ liệu lên Drive, chương trình dừng và báo lỗi, không ép kết nối lại. Việc kết nối lại ảnh hưởng tới toàn bộ Drive trong phiên Colab, vì vậy không chạy tác vụ khác đang ghi Drive cùng lúc. Cách xử lý này đã kiểm tra thứ tự gọi và các nhánh lỗi; chưa xác minh trên một phiên Drive thật.
 
 Trong phần kỹ thuật bên dưới, `INPUT_DIR`, `OUTPUT_DIR`, `RESUME`, `OVERWRITE` lần lượt tương ứng với **Thư mục ảnh gốc**, **Thư mục ảnh đã Upscale**, **Bỏ qua ảnh đã làm xong**, **Làm lại ảnh cũ**.
 
@@ -173,7 +175,8 @@ Bước cài đặt chỉ hiển thị bốn giai đoạn chính. Chi tiết n�
 | Output đã tồn tại | Giữ nguyên cấu hình để resume; nếu cấu hình thay đổi, output mới hoặc `--overwrite`. |
 | Ảnh hỏng/ICC không đọc được | Xem `plan.json`/backend log; ảnh khác vẫn tiếp tục. Giữ file nguồn để sửa riêng. |
 | Drive mất mount/quota đầy | Mount lại hoặc giải phóng dung lượng, chạy `--resume --retry-failed`. |
-| `/content` thiếu dung lượng | Tắt STAGING hoặc xóa dữ liệu local không còn cần. |
+| Vừa tải ảnh lên Drive nhưng số ảnh không tăng | Đợi trang Drive báo tải xong, chạy lại Bước 5 của notebook mới. Bước này tự kết nối lại Drive; kiểm tra đúng tài khoản và thư mục nếu vẫn thiếu ảnh. |
+| `/content` thiếu dung lượng | Giải phóng các tệp tạm không còn cần trên Colab; giữ ảnh gốc trên Drive. Khi dùng CLI, có thể bỏ `--stage`. |
 | Dependency conflict | Dùng runtime Colab mới; không cài lại torch tùy tiện. Gửi output doctor và backend.log khi báo lỗi. |
 | `git pull --ff-only` không được | Branch bị phân kỳ hoặc source local đã sửa; lưu thay đổi rồi dùng runtime sạch. Không force/reset tự động. |
 
