@@ -116,7 +116,7 @@ def test_every_form_field_has_help_and_internal_names_are_hidden():
         assert not any(key in line and "# @param" in line for line in form.splitlines())
     assert "không nhập link chia sẻ" in form
     fields = [line.split("=", 1)[0].strip() for line in form.splitlines() if "# @param" in line]
-    assert len(fields) == 9
+    assert len(fields) == 10
     assert all(field.isidentifier() and "_" not in field for field in fields)
     assert "Chạy" in fields
     assert "Bỏ_qua_ảnh_đã_làm_xong" not in form
@@ -129,3 +129,35 @@ def test_every_form_field_has_help_and_internal_names_are_hidden():
     assert scope["BRANCH"] == "main"
     assert scope["PIN_COMMIT"] == ""
     assert scope["RESUME"] is True and scope["OVERWRITE"] is False
+
+
+@pytest.mark.parametrize(
+    "choice,model,folder",
+    [
+        ("MangaJaNai (tự chọn)", "auto", "Output"),
+        ("Eula Digimanga BW V2 NC1", "eula-digimanga", "Eula Digimanga"),
+        ("2x Manga Ora", "manga-ora", "Manga Ora"),
+    ],
+)
+def test_model_choice_reaches_cli_and_uses_separate_output(monkeypatch, choice, model, folder):
+    notebook = json.loads(
+        (Path(__file__).parents[1] / "colab/Run_MangaJaNai.ipynb").read_text(encoding="utf-8")
+    )
+    calls = []
+
+    def live(args, **kwargs):
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0)
+
+    monkeypatch.setattr(
+        runpy, "run_path", lambda path: {"run_live": live, "refresh_drive": lambda path: None}
+    )
+    scope = {}
+    form = "".join(notebook["cells"][1]["source"])
+    exec(form.replace('Bộ = "MangaJaNai (tự chọn)"', f'Bộ = "{choice}"'), scope)
+    exec("".join(notebook["cells"][5]["source"]), scope)
+    assert calls[0][calls[0].index("--model") + 1] == model
+    assert Path(calls[0][calls[0].index("--output") + 1]).name == folder
+    assert "--auto-model" not in calls[0]
+    exec("".join(notebook["cells"][6]["source"]), scope)
+    assert calls[1][calls[1].index("--output") + 1] == scope["OUTPUT_DIR"]

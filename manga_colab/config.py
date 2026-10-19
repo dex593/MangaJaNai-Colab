@@ -8,6 +8,8 @@ from pathlib import Path
 
 import yaml
 
+from .model_selector import EXTRA_MODELS
+
 UPSTREAM_COMMIT = "e63e7843ba45e2a2d9fd9007e3ea33aec9b9e222"
 UPSTREAM_REPO = "https://github.com/the-database/MangaJaNaiConverterGui.git"
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,6 +36,7 @@ class Config:
     log_level: str = "normal"
     backend: Path = ROOT / ".upstream" / "MangaJaNaiConverterGui"
     workflow: Path | None = None
+    model: str = "auto"
 
     def __post_init__(self) -> None:
         for key in ("input", "output", "models", "backend", "stage", "workflow"):
@@ -63,6 +66,7 @@ class Config:
         if self.cuda_device < 0 or not 1 <= self.quality <= 100:
             raise ValueError("cuda_device phải >= 0; quality phải từ 1 đến 100")
         for key, choices in {
+            "model": ("auto", *EXTRA_MODELS),
             "format": ("png", "jpeg", "webp", "avif"),
             "detector": ("upstream", "corrected"),
             "precision": ("auto", "fp32"),
@@ -70,12 +74,24 @@ class Config:
         }.items():
             if getattr(self, key) not in choices:
                 raise ValueError(f"{key}: chọn một trong {choices}")
+        if self.model != "auto" and self.scale > EXTRA_MODELS[self.model]["scale"]:
+            raise ValueError(
+                f"{EXTRA_MODELS[self.model]['label']} hỗ trợ Upscale từ 1 đến "
+                f"{EXTRA_MODELS[self.model]['scale']} lần; hãy giảm số lần Upscale."
+            )
+        if self.model != "auto" and self.workflow:
+            raise ValueError("Chọn --workflow hoặc --model, không dùng đồng thời cả hai")
         if self.output == self.input or self.input.is_relative_to(self.output):
             raise ValueError("Output phải khác input và không được là thư mục cha của input")
         if self.stage and (self.stage == self.input or self.input.is_relative_to(self.stage)):
             raise ValueError("Staging không được chứa input")
         if self.models == self.input or self.input.is_relative_to(self.models):
             raise ValueError("Model cache không được chứa input")
+
+    @property
+    def effective_detector(self) -> str:
+        # Eula must recognize pure B/W RGB pages as gray; the original auto mode stays unchanged.
+        return "corrected" if self.model == "eula-digimanga" else self.detector
 
     def fingerprint(self, workflow: dict, model_digest: str) -> str:
         data = {
@@ -91,6 +107,7 @@ class Config:
                 "tile",
             )
         }
+        data["detector"] = self.effective_detector
         data.update(upstream=UPSTREAM_COMMIT, adapter=1, workflow=workflow, model=model_digest)
         return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 

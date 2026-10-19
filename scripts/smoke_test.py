@@ -13,16 +13,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from manga_colab.config import Config
 from manga_colab.gpu import gpu_info
 from manga_colab.pipeline import run
+from manga_colab.model_selector import EXTRA_MODELS
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--directory", type=Path, default=Path(".runtime/smoke"))
     parser.add_argument("--scale", type=float, default=2)
+    parser.add_argument("--model", choices=["auto", *EXTRA_MODELS], default="auto")
+    parser.add_argument("--models", type=Path, help="Reuse an existing verified model cache")
     args = parser.parse_args()
     gpu_info(required=True)
     root = args.directory.resolve()
-    source = root / "input"
+    source = root / ("input" if args.model == "auto" else f"input-{args.model}")
     source.mkdir(parents=True, exist_ok=True)
     gray = Image.new("L", (64, 80), 255)
     draw = ImageDraw.Draw(gray)
@@ -36,16 +39,26 @@ def main() -> int:
     draw = ImageDraw.Draw(color)
     draw.ellipse((12, 8, 55, 52), fill=(220, 130, 40))
     draw.line((4, 60, 58, 3), fill=(250, 50, 100), width=3)
-    color.save(source / "color.png")
-    output = root / f"scale-{args.scale:g}"
-    config = Config(source, output, root / "models", scale=args.scale, tile=64, overwrite=True)
+    if args.model != "eula-digimanga":
+        color.save(source / "color.png")
+    output_root = root if args.model == "auto" else root / args.model
+    output = output_root / f"scale-{args.scale:g}"
+    config = Config(
+        source,
+        output,
+        args.models or root / "models",
+        scale=args.scale,
+        tile=64,
+        overwrite=True,
+        model=args.model,
+    )
     status = run(config)
     if status:
         return status
     result = json.loads((output / ".manga-colab/report.json").read_text(encoding="utf-8"))
-    assert result["summary"]["successful"] == 2
-    assert len(result["summary"]["models"]) == 2
-    print("REAL CUDA smoke test passed for manga ESRGAN and color FDAT.")
+    assert result["summary"]["successful"] == (1 if args.model == "eula-digimanga" else 2)
+    assert len(result["summary"]["models"]) == (2 if args.model == "auto" else 1)
+    print(f"REAL CUDA smoke test passed: {args.model}, target {args.scale:g}x.")
     return 0
 
 

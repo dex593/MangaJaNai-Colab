@@ -1,12 +1,12 @@
 # Kết quả xác minh
 
-Ngày chạy: 2026-10-19. Không dùng kết quả giả lập làm bằng chứng AI inference.
+Ngày chạy gần nhất: 2026-10-20. Không dùng kết quả giả lập làm bằng chứng AI inference.
 
 ## Unit/integration ở cấp điều phối
 
 - Windows: Python 3.12.6, NumPy 2.1.2, OpenCV 4.12.0, Pillow 10.4.0, Rich 13.9.2, libvips 8.16.1.
 - Linux/WSL: Python 3.12.3, môi trường riêng cài từ `pyproject.toml` + pyvips 3.0.0/pyvips-binary 8.16.1.
-- `python -m pytest -q`: **134 passed** trên Linux; **132 passed, 2 skipped** trên Windows. Hai bài kiểm tra gửi tín hiệu dừng cho cả nhóm tiến trình chỉ chạy trên Linux (môi trường Colab).
+- `python -m pytest -q`: **179 passed** trên Linux; **177 passed, 2 skipped** trên Windows. Hai bài kiểm tra gửi tín hiệu dừng cho cả nhóm tiến trình chỉ chạy trên Linux (môi trường Colab).
 - `ruff check manga_colab tests scripts`: pass.
 - `bash -n scripts/setup_colab.sh scripts/check_environment.sh`: pass trên Linux.
 - Notebook: sáu code cells parse được bằng Python AST, không có secrets/token, không có inference engine trong notebook.
@@ -62,11 +62,39 @@ Thiết bị: **NVIDIA GeForce GTX 1050 Ti 4 GB**, compute 6.1, Windows, PyTorch
 
 Đã cài **PyTorch 2.11.0+cpu / torchvision 0.26.0+cpu** trong môi trường Linux Python 3.12.3 riêng. Spandrel 0.4.1 và custom FDAT của upstream load hai model 2x chính thức thành công; chạy tensor 16×16 qua từng model cho output 32×32 hữu hạn. `chainner_ext 0.3.10` chạy CubicCatrom resize 32×32 → 24×24 thành công. Đây là kiểm tra API/native trên Linux với PyTorch cùng phiên bản runtime Colab 2026.07, **không phải kiểm thử CUDA/Drive trên Colab**.
 
+## Eula và Manga Ora, phiên bản 0.2.0
+
+Ngày 2026-10-20: tải hai tệp thật từ nguồn ghi trong `extra_models.json`, sau đó tải lại qua chính `ModelManager` vào cache riêng để kiểm chứng đường tải của ứng dụng. Eula từ Oracle Object Storage do OpenModelDB liên kết; Ora từ link Google Drive người dùng cung cấp. Cả hai khớp dung lượng và SHA-256 công bố trong metadata OpenModelDB đã pin. `gdown 6.4.2` tải được mà không dùng cookie đăng nhập hay token.
+
+Chạy backend gốc trên **GTX 1050 Ti 4 GB, FP32, PyTorch 2.5.1+cu121**:
+
+| Model | Target | Kết quả đã decode và hash |
+|---|---|---|
+| Eula ESRGAN 4x, 1 kênh | 4x | 64×80 → 256×320 PNG |
+| Eula ESRGAN 4x, 1 kênh | 2x | 64×80 → 128×160 PNG, qua final downscale ICC upstream |
+| Manga Ora DAT 2x, RGB | 2x | Grayscale 64×80 → 128×160; RGB 64×64 → 128×128 PNG |
+| Manga Ora DAT 2x, RGB | 1.5x | Grayscale → 96×120; RGB → 96×96 PNG, qua final downscale upstream |
+
+`doctor --check-models` xác minh hai model load được, đúng kiến trúc, số kênh và hệ số Upscale. Trong Linux **Python 3.12.3 / PyTorch 2.11.0+cpu / Spandrel 0.4.1**, cả hai chạy tensor 16×16 thành công: Eula cho tensor 1 kênh 64×64, Ora cho tensor RGB 32×32, tất cả giá trị hữu hạn. Chưa xác minh FP16 hay GPU Colab cho hai model này.
+
+Chạy thêm từng model trên GPU thật với staging: lượt đầu **1 thành công**, lượt chạy lại **1 bỏ qua, 0 thành công mới**. Nội dung và thời điểm sửa tệp kết quả giữ nguyên. Đây là kiểm tra trên ổ đĩa cục bộ, chưa kiểm tra mount Google Drive thật.
+
+Các bài test mới kiểm tra lựa chọn model theo CLI/notebook, giới hạn Ora 2x, Eula từ chối ảnh màu, RGB đen/trắng tuyệt đối, workflow/settings JSON, checksum/progress, gián đoạn/quota/sai dung lượng, dọn `.part`, cache hit, thay model không skip/ghi đè sai, thư mục kết quả riêng và loại kết quả model khác khỏi quét input. Test download lỗi dùng dữ liệu giả để kiểm tra xử lý lỗi, tách biệt với tải thật và inference thật ở trên.
+
+Tái lập inference:
+
+```bash
+python scripts/smoke_test.py --model eula-digimanga --scale 4
+python scripts/smoke_test.py --model eula-digimanga --scale 2
+python scripts/smoke_test.py --model manga-ora --scale 2
+python scripts/smoke_test.py --model manga-ora --scale 1.5
+```
+
 ## Chưa xác minh
 
 - Chưa mở phiên Colab GPU thực, chưa mount Google Drive thật, chưa chạy T4/L4/A100 hoặc FP16/BF16 trên các GPU đó.
 - Chưa chạy batch hàng nghìn trang manga, chưa cưỡng bức OOM thật, ngắt mount thật hoặc quota Drive đầy thật.
-- Chưa chạy inference tất cả 16 model; đã kiểm chứng archive/hash cho cả 16 và inference bốn model nêu trên.
+- Với 16 model MangaJaNai/IllustrationJaNai, đã kiểm chứng archive/hash cho cả 16 và inference bốn model nêu trên. Hai model bổ sung Eula/Ora đã chạy inference thật; chưa chạy inference 12 model còn lại của MangaJaNai/IllustrationJaNai.
 - Không cam kết cùng pixel giữa các tile size/precision khác nhau.
 - Default Colab Python 3.13 không tương thích `chainner_ext 0.3.10`; chọn runtime **2026.07 / Python 3.12**. Đây là giới hạn đã kiểm tra qua PyPI wheels và source bindings, không phải lỗi được che bằng một upscaler khác.
 

@@ -29,6 +29,11 @@ def add_config(parser: argparse.ArgumentParser) -> None:
     ):
         parser.add_argument("--" + name, type=kind, default=argparse.SUPPRESS, help=description)
     for name, choices, description in (
+        (
+            "model",
+            ["auto", "eula-digimanga", "manga-ora"],
+            "Chọn MangaJaNai tự động, Eula 4x hoặc Manga Ora 2x",
+        ),
         ("format", ["png", "jpeg", "webp", "avif"], "Định dạng output"),
         ("detector", ["upstream", "corrected"], "Giữ upstream hoặc sửa pure B/W + uint8 overflow"),
         ("precision", ["auto", "fp32"], "Auto FP16 nếu GPU/model hỗ trợ"),
@@ -50,13 +55,15 @@ def add_config(parser: argparse.ArgumentParser) -> None:
             help=description,
         )
     parser.add_argument(
-        "--auto-model", action="store_true", help="Tự chọn model cho từng ảnh (luôn bật)"
+        "--auto-model", action="store_true", help="Dùng chế độ MangaJaNai tự chọn (mặc định)"
     )
 
 
 def from_args(args: argparse.Namespace) -> Config:
     values = load_yaml(args.config) if args.config else {}
     values.update({k: v for k, v in vars(args).items() if k in Config.__dataclass_fields__})
+    if args.auto_model and values.get("model", "auto") != "auto":
+        raise ValueError("Không dùng --auto-model cùng chế độ Eula hoặc Manga Ora")
     if "input" not in values:
         raise ValueError("Cần --input hoặc input trong YAML")
     if "output" not in values:
@@ -95,7 +102,7 @@ def parser() -> argparse.ArgumentParser:
         help="Xác minh SHA-256 và thử load model cached trên CPU",
     )
     models = commands.add_parser(
-        "models", help="Catalog model chính thức và selective ZIP download"
+        "models", help="Danh sách và tải model AI cần dùng"
     )
     operations = models.add_subparsers(dest="operation", required=True)
     listing = operations.add_parser("list", help="Liệt kê filename, size và cache status")
@@ -147,7 +154,7 @@ def main(argv: list[str] | None = None) -> int:
             from .scanner import build_plan
 
             config = from_args(args)
-            plan = build_plan(config, load_workflow(config.workflow))
+            plan = build_plan(config, load_workflow(config.workflow, config.model))
             if not plan:
                 raise ValueError("Input rỗng hoặc không tồn tại")
             with download_progress(console) as progress:

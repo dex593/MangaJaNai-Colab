@@ -95,7 +95,7 @@ def dashboard(console: Console, values: dict) -> None:
         Panel(
             table,
             title="MANGA JANAI  /  COLAB",
-            subtitle="UPSCALE · TỰ CHỌN MODEL AI",
+            subtitle="UPSCALE MANGA",
             title_align="left",
             subtitle_align="right",
             padding=(1, 2),
@@ -114,7 +114,7 @@ def download_progress(console: Console, quiet: bool = False) -> Progress:
         console=console,
         disable=quiet,
         refresh_per_second=2,
-        title="Tải model chính thức",
+        title="Tải bộ AI",
     )
 
 

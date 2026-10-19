@@ -25,7 +25,7 @@ from .logger import (
     scan_progress,
 )
 from .model_manager import ModelManager
-from .model_selector import load_workflow
+from .model_selector import EXTRA_MODELS, load_workflow
 from .report import display_report, write_report
 from .scanner import build_plan
 from .storage import atomic_json, probe_directory, require_space, sha256, verify_image
@@ -43,7 +43,7 @@ def run(config: Config, dry_run: bool = False) -> int:
 
 def _run(config: Config, state: Path, started: float, dry_run: bool) -> int:
     console, log = configure(state / "application.log", config.log_level)
-    workflow = load_workflow(config.workflow)
+    workflow = load_workflow(config.workflow, config.model)
     log.info(
         "Đọc lại thư mục ảnh gốc: %s\nĐang kiểm tra danh sách; chưa bắt đầu Upscale.", config.input
     )
@@ -150,9 +150,12 @@ def _run(config: Config, state: Path, started: float, dry_run: bool) -> int:
                 "Lưu kết quả": config.output,
                 "Thư mục model AI": config.models,
                 "Upscale": f"{config.scale:g}×  ·  {config.format.upper()}",
-                "Chọn model": "Tự động, theo từng ảnh",
-                "Bỏ qua ảnh đã làm xong": "Bật" if config.resume else "Tắt",
-                "Làm lại ảnh cũ": "Bật" if config.overwrite else "Tắt",
+                "Chọn model": "MangaJaNai · tự chọn theo từng ảnh"
+                if config.model == "auto"
+                else EXTRA_MODELS[config.model]["label"],
+                "Cách chạy": "Upscale lại tất cả ảnh"
+                if config.overwrite
+                else ("Chỉ Upscale ảnh chưa làm" if config.resume else "Không ghi đè kết quả cũ"),
                 "Ảnh tìm thấy": len(plan),
                 "Model cần tải": len(missing),
                 "Đã xong · bỏ qua": sum(
@@ -174,7 +177,8 @@ def _run(config: Config, state: Path, started: float, dry_run: bool) -> int:
         )
         if config.overwrite:
             log.warning(
-                "Làm lại ảnh cũ đang BẬT: kết quả cũ sẽ được thay thế. Tắt tùy chọn này ở Bước 1 nếu chỉ muốn chạy ảnh mới."
+                "Đã chọn Upscale lại tất cả ảnh: kết quả cũ sẽ được thay thế. "
+                "Chọn Chỉ Upscale ảnh chưa làm ở Bước 1 nếu muốn giữ kết quả cũ."
             )
         if pending:
             with download_progress(

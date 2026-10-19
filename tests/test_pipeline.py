@@ -82,6 +82,25 @@ def test_changed_config_cannot_skip(config, write_image, isolated_backend):
     assert isolated_backend.calls == 1
 
 
+def test_changed_model_cannot_skip_or_overwrite_previous_result(
+    config, write_image, isolated_backend
+):
+    write_image(config.input / "one.png")
+    assert pipeline.run(config) == 0
+    old = (config.output / "one.png").read_bytes()
+    changed = replace(config, model="manga-ora")
+    assert pipeline.run(changed) == 2
+    assert isolated_backend.calls == 1
+    assert (config.output / "one.png").read_bytes() == old
+    assert pipeline.run(replace(changed, output=config.output / "Manga Ora")) == 0
+    assert (
+        report(replace(changed, output=config.output / "Manga Ora"))["images"][0]["model"]
+        == "2x_Manga_Ora.pth"
+    )
+    assert pipeline.run(replace(changed, output=config.output / "Manga Ora")) == 0
+    assert isolated_backend.calls == 2
+
+
 @pytest.mark.parametrize("staging", [False, True])
 def test_new_images_after_run_keep_old_outputs(config, write_image, isolated_backend, staging):
     if staging:
@@ -122,8 +141,7 @@ def test_017_added_after_001_and_005_only_upscales_new_image(config, write_image
         write_image(config.input / f"{name}.jpg")
     assert pipeline.run(config) == 0
     old = {
-        path: (path.read_bytes(), path.stat().st_mtime_ns)
-        for path in config.output.glob("*.png")
+        path: (path.read_bytes(), path.stat().st_mtime_ns) for path in config.output.glob("*.png")
     }
     write_image(config.input / "017.jpg")
     assert pipeline.run(config) == 0

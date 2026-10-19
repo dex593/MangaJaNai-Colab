@@ -120,7 +120,7 @@ class Backend:
             actual_device = get_settings(self.module.context).device
             if str(actual_device) != f"cuda:{config.cuda_device}":
                 raise RuntimeError(f"Upstream chọn sai GPU: {actual_device}")
-            if config.detector == "corrected":
+            if config.effective_detector == "corrected":
                 self.module.cv_image_is_grayscale = lambda image, threshold: detect(
                     image, threshold, "corrected"
                 )

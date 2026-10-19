@@ -146,6 +146,13 @@ def doctor(
                     descriptor = ModelLoader("cpu").load_from_file(models / name)
                     if descriptor.scale != int(name[0]):
                         raise ValueError(f"Model scale không khớp: {name}")
+                    entry = manager.entry(name)
+                    if "architecture" in entry and (
+                        descriptor.architecture.id != entry["architecture"]
+                        or descriptor.input_channels != entry["input_channels"]
+                        or descriptor.output_channels != entry["output_channels"]
+                    ):
+                        raise ValueError(f"Kiến trúc/số kênh model không khớp: {name}")
                     count += 1
             return f"{count} model load bằng Spandrel thành công"
 

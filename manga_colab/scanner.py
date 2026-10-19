@@ -53,6 +53,7 @@ def scan_files(config: Config) -> list[Path]:
             for name in directories
             if name != ".manga-colab"
             and not (Path(root) / name).is_symlink()
+            and not (Path(root) / name / ".manga-colab").is_dir()
             and not any((Path(root) / name).resolve().is_relative_to(p) for p in excluded)
         ]
         for name in files:
@@ -94,7 +95,7 @@ def build_plan(config: Config, workflow: dict, progress=None) -> list[PlanItem]:
                 raise OSError("Input thay đổi trong khi quét; hãy chạy lại khi copy hoàn tất")
             item.size = before.st_size
             item.height, item.width = image.shape[:2]
-            item.grayscale = detect(image, config.threshold, config.detector)
+            item.grayscale = detect(image, config.threshold, config.effective_detector)
             item.chain = select_chain(
                 item.width, item.height, item.grayscale, config.scale, workflow
             )

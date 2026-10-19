@@ -1,5 +1,6 @@
 # CLI flags override these values. Paths must be supplied by the user.
 scale: 2
+model: auto
 format: png
 threshold: 12
 detector: upstream

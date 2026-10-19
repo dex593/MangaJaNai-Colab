@@ -34,7 +34,7 @@ Adapter xử lý thêm, không đổi weights/inference math:
 - Sửa mapping context: JSON giữ GUI index CPU-first, context dùng filtered accelerator index và legacy CUDA index đúng; assert thiết bị được chọn.
 - Hook callback của splitter để đếm tile thật. Khi splitter trả `Split`, adapter thoát khỏi split và retry toàn ảnh với tile giảm. Tránh nhánh upstream mid-row restart có `start_y = (y * tile_size_x) // new_tile_size_y`, dùng chiều x thay vì y.
 - Không cho phép `model is None` hay preprocessing/output NaN/Inf trở thành success.
-- `--detector corrected` là opt-in, không thay hành vi mặc định.
+- `--detector corrected` là opt-in cho MangaJaNai, không thay hành vi mặc định của chế độ này. Từ 0.2.0, chế độ Eula dùng corrected để không loại nhầm trang RGB chỉ gồm đen/trắng tuyệt đối.
 
 Giữ nguyên màu theo implementation upstream, kể cả các chỗ dùng tên RGB/BGR chưa nhất quán. Không tự sửa pipeline màu hoặc thuật toán screentone. Tile ảnh hưởng context của mạng nên không thể đảm bảo output bit-identical giữa các tile size.
 
@@ -45,6 +45,12 @@ Hai ZIP official đã được tải thật và đọc mọi member dùng trong 
 V3 archive SHA-256 official: `6c26828ad8e142c9e9c7181451257f3f56a0f5c7f897d9c7878ce898404f53e5`.
 
 V1 archive SHA-256 do project tính (upstream API digest=null): `5156f4167875bba51a8ed52bd1c794b0d7277f7103f99b397518066e4dda7e55`.
+
+### Hai model bổ sung (0.2.0)
+
+`extra_models.json` lưu Eula Digimanga BW V2 NC1 (ESRGAN 4x, 1→1 kênh) và Manga Ora (DAT 2x, 3→3 kênh), theo metadata OpenModelDB commit `782aac088bd83dd3fc438a42eb0c3868dc559110`. Eula tải từ URL trong metadata; link Google Drive cho Ora do người dùng cung cấp, đã tải và khớp SHA-256 công bố. Link Proton Drive gốc vẫn được ghi để truy nguồn. Không thay đổi weights hoặc nâng Spandrel để chạy hai model.
+
+Mỗi chế độ bổ sung tạo một chain duy nhất, không giới hạn chiều cao, không auto levels hay resize trước AI. Eula chỉ khớp ảnh đen trắng; Ora khớp cả grayscale và RGB. Giới hạn target không vượt native scale. Cùng backend thực hiện đổi số kênh phù hợp, chia tile, GPU inference và final resize/ICC. Đây là lựa chọn riêng do người dùng bật, không thay thế ngầm model trong workflow MangaJaNai.
 
 ## Colab runtime
 

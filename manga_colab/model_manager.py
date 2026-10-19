@@ -12,7 +12,7 @@ from typing import Callable
 import requests
 from filelock import FileLock
 
-from .model_selector import DATA
+from .model_selector import DATA, EXTRA_MODELS
 from .storage import atomic_json, require_space, sha256
 
 OFFICIAL = "https://github.com/the-database/MangaJaNai/releases"
@@ -144,10 +144,51 @@ def release_asset(tag: str, asset_name: str, expected: dict, session: requests.S
     raise AssertionError("unreachable")
 
 
+def download_file(entry: dict, temp: Path, progress: Progress | None = None) -> None:
+    """Stream public weights, including Drive confirmation, with verified size and hash."""
+    import gdown
+    from gdown.exceptions import DownloadError as GDownError
+
+    def update(done: int, total: int | None) -> None:
+        if done > entry["size"] or (total is not None and total != entry["size"]):
+            raise DownloadError("Dung lượng tải không khớp model đã kiểm chứng")
+        if progress:
+            progress(done, entry["size"])
+
+    for attempt in range(3):
+        update(0, entry["size"])
+        try:
+            digest = hashlib.sha256()
+            with temp.open("w+b") as output:
+                gdown.download(
+                    url=None if entry.get("google_drive_id") else entry["download_url"],
+                    id=entry.get("google_drive_id"),
+                    output=output,
+                    quiet=True,
+                    use_cookies=False,
+                    timeout=(15, 60),
+                    progress=update,
+                    hasher=digest,
+                )
+                output.flush()
+                os.fsync(output.fileno())
+            if temp.stat().st_size != entry["size"] or digest.hexdigest() != entry["sha256"]:
+                raise DownloadError("Model tải thiếu hoặc bị hỏng: size/SHA-256 không khớp")
+            return
+        except (requests.RequestException, GDownError, DownloadError) as exc:
+            if attempt == 2:
+                raise DownloadError(f"Không tải được model sau 3 lần: {exc}") from exc
+            time.sleep(2**attempt)
+
+
 class ModelManager:
     def __init__(self, directory: Path, catalog: dict | None = None):
         self.directory = directory
         self.catalog = catalog or json.loads((DATA / "models.json").read_text(encoding="utf-8"))
+        if catalog is None:
+            self.catalog["models"].update(
+                (entry["filename"], entry) for entry in EXTRA_MODELS.values()
+            )
         self.validated: dict[str, str] = {}
 
     def entry(self, name: str) -> dict:
@@ -166,6 +207,30 @@ class ModelManager:
             return True
         return False
 
+    def _ensure_extra(self, name: str, entry: dict, progress_factory) -> None:
+        manual = (
+            f"Model: {entry['label']}. Nguồn: {entry['source']}. "
+            f"Tải tại {entry['download_url']}, "
+            f"đặt tên tệp là {name} và lưu vào {self.directory}. "
+            f"Dung lượng: {entry['size']} bytes; SHA-256: {entry['sha256']}. "
+            "Sau đó chạy lại Bước 5."
+        )
+        temp = self.directory / (name + ".part")
+        try:
+            require_space(self.directory, entry["size"] + 32 * 1024 * 1024)
+            progress = progress_factory(name, entry["size"]) if progress_factory else None
+            download_file(entry, temp, progress)
+            os.replace(temp, self.directory / name)
+            self.validated[name] = entry["sha256"]
+            atomic_json(
+                self.directory / (name + ".json"),
+                {"sha256": entry["sha256"], "source": entry["download_url"]},
+            )
+        except (OSError, ValueError, DownloadError) as exc:
+            raise DownloadError(f"{exc}\n{manual}") from exc
+        finally:
+            temp.unlink(missing_ok=True)
+
     def ensure(self, names: list[str], progress_factory=None) -> dict[str, str]:
         self.directory.mkdir(parents=True, exist_ok=True)
         with (
@@ -177,6 +242,9 @@ class ModelManager:
                 if self.valid(name):
                     continue
                 entry = self.entry(name)
+                if "archive" not in entry:
+                    self._ensure_extra(name, entry, progress_factory)
+                    continue
                 archive = self.catalog["archives"][entry["archive"]]
                 manual = (
                     f"Model: {name}. Nguồn: {OFFICIAL}/tag/{archive['tag']}. "

@@ -17,6 +17,7 @@ from rich.terminal_theme import TerminalTheme
 from rich.text import Text
 
 from .notebook import EVENT_PREFIX
+from .model_selector import EXTRA_MODELS
 
 THEME = TerminalTheme(
     (15, 23, 42),
@@ -147,6 +148,9 @@ class AppProgress(Progress):
 
 
 def model_label(filename: str) -> str:
+    for entry in EXTRA_MODELS.values():
+        if filename == entry["filename"]:
+            return entry["label"]
     parts = filename.rsplit(".", 1)[0].split("_")
     if len(parts) >= 4 and parts[1] == "MangaJaNai":
         return f"MangaJaNai {parts[2]} · {parts[0]} · {parts[3]}"
