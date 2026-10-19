@@ -52,6 +52,8 @@ V1 archive SHA-256 do project tính (upstream API digest=null): `5156f4167875bba
 
 Mỗi chế độ bổ sung tạo một chain duy nhất, không giới hạn chiều cao, không auto levels hay resize trước AI. Eula chỉ khớp ảnh đen trắng; Ora khớp cả grayscale và RGB. Giới hạn target không vượt native scale. Cùng backend thực hiện đổi số kênh phù hợp, chia tile, GPU inference và final resize/ICC. Đây là lựa chọn riêng do người dùng bật, không thay thế ngầm model trong workflow MangaJaNai.
 
+Từ 0.2.1, Ora dùng `use_fp16=False` khi GPU không có BF16 phần cứng. Spandrel 0.4.1 khai báo DAT `supports_half=False`, trong khi kiểm tra `torch.cuda.is_bf16_supported()` của upstream có thể chấp nhận BF16 mô phỏng. Adapter dựa trên capability GPU để tránh đường này trên T4; không ép FP16 không được model hỗ trợ. Auto tile Ora dùng ngưỡng VRAM trống 512/320/128 px thay estimator dựa trên dung lượng weights của upstream, cộng phần cache PyTorch chưa có tensor sử dụng. Sau OOM, giới hạn tile được lưu theo đường dẫn model trong phiên Backend để ảnh sau không thử lại mức đã thất bại. Kết quả đã hoàn tất vẫn được giữ khi resume; có thể chọn làm lại tất cả nếu muốn tạo lại với chính sách mới.
+
 ## Colab runtime
 
 [Colab runtime FAQ](https://research.google.com/colaboratory/runtime-version-faq.html) và [backend-info](https://github.com/googlecolab/backend-info) được kiểm tra trực tiếp. Snapshot main tại thời điểm nghiên cứu có Python 3.13 wheels của torch 2.11.0, torchvision 0.26.0, numpy 2.1.3 và Pillow 11.3.0. Snapshot CPU không đồng nghĩa GPU runtime của người dùng có cùng CUDA build; script luôn kiểm tra runtime thực tế.

@@ -6,7 +6,7 @@ Ngày chạy gần nhất: 2026-10-20. Không dùng kết quả giả lập làm
 
 - Windows: Python 3.12.6, NumPy 2.1.2, OpenCV 4.12.0, Pillow 10.4.0, Rich 13.9.2, libvips 8.16.1.
 - Linux/WSL: Python 3.12.3, môi trường riêng cài từ `pyproject.toml` + pyvips 3.0.0/pyvips-binary 8.16.1.
-- `python -m pytest -q`: **179 passed** trên Linux; **177 passed, 2 skipped** trên Windows. Hai bài kiểm tra gửi tín hiệu dừng cho cả nhóm tiến trình chỉ chạy trên Linux (môi trường Colab).
+- `python -m pytest -q`: **196 passed** trên Linux; **194 passed, 2 skipped** trên Windows. Hai bài kiểm tra gửi tín hiệu dừng cho cả nhóm tiến trình chỉ chạy trên Linux (môi trường Colab).
 - `ruff check manga_colab tests scripts`: pass.
 - `bash -n scripts/setup_colab.sh scripts/check_environment.sh`: pass trên Linux.
 - Notebook: sáu code cells parse được bằng Python AST, không có secrets/token, không có inference engine trong notebook.
@@ -90,10 +90,18 @@ python scripts/smoke_test.py --model manga-ora --scale 2
 python scripts/smoke_test.py --model manga-ora --scale 1.5
 ```
 
+## Bộ nhớ và tốc độ Ora, phiên bản 0.2.1
+
+- Kiểm tra lựa chọn precision với capability T4/L4/A100, FP32 bắt buộc, tile theo VRAM trống, cache bộ nhớ tái sử dụng, giới hạn tile sau OOM theo từng model và cấu hình tile thủ công. Các capability này được giả lập trong unit tests, không phải các GPU đã truy cập thật.
+- Đo Ora thật trên GTX 1050 Ti / PyTorch 2.5.1+cu121 / FP32. Hai ảnh tự tạo 800×1200, output 1600×2400. Giới hạn allocator PyTorch còn 2 GiB để tạo OOM thật mà tránh Windows chuyển dữ liệu sang RAM.
+- Bản 0.2.0: **51.37 giây, 4 lần OOM/retry**, peak tensor GPU **1602.76 MiB**. Bản 0.2.1: **50.15 giây, 0 lần OOM/retry**, peak tensor GPU **1144.43 MiB**; hai ảnh đều dùng tile 320. Đây là một lượt đo cho mỗi bản, mức chênh thời gian nhỏ, không chứng minh tăng tốc đáng kể hoặc tốc độ trên T4.
+- Các phép forward riêng FP32 đã chạy tile 128/256/320/384/512. Tile 512 đạt peak tensor khoảng 2629 MiB trên máy này. Các ngưỡng tile là khởi đầu thận trọng, vẫn có OOM fallback.
+- Chạy BF16 có autocast trên GTX 1050 Ti thành công với tile 128, nhưng đây là đường mô phỏng và không được dùng để khẳng định hiệu suất BF16 trên T4/L4/A100. Chính sách mới không chọn đường mô phỏng cho Ora.
+
 ## Chưa xác minh
 
 - Chưa mở phiên Colab GPU thực, chưa mount Google Drive thật, chưa chạy T4/L4/A100 hoặc FP16/BF16 trên các GPU đó.
-- Chưa chạy batch hàng nghìn trang manga, chưa cưỡng bức OOM thật, ngắt mount thật hoặc quota Drive đầy thật.
+- Chưa chạy batch hàng nghìn trang manga, ngắt mount thật hoặc quota Drive đầy thật. OOM GPU thật đã được thử bằng giới hạn allocator như mô tả ở trên.
 - Với 16 model MangaJaNai/IllustrationJaNai, đã kiểm chứng archive/hash cho cả 16 và inference bốn model nêu trên. Hai model bổ sung Eula/Ora đã chạy inference thật; chưa chạy inference 12 model còn lại của MangaJaNai/IllustrationJaNai.
 - Không cam kết cùng pixel giữa các tile size/precision khác nhau.
 - Default Colab Python 3.13 không tương thích `chainner_ext 0.3.10`; chọn runtime **2026.07 / Python 3.12**. Đây là giới hạn đã kiểm tra qua PyPI wheels và source bindings, không phải lỗi được che bằng một upscaler khác.

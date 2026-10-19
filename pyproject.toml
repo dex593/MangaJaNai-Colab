@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mangajanai-colab"
-version = "0.2.0"
+version = "0.2.1"
 description = "Resumable Google Colab launcher and batch runner for the original MangaJaNai backend"
 requires-python = ">=3.11,<3.13"
 license = "GPL-3.0-only"

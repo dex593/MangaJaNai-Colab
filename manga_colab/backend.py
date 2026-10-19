@@ -19,7 +19,7 @@ import numpy as np
 
 from .config import Config, UPSTREAM_COMMIT
 from .detector import detect
-from .gpu import gpu_info, map_device
+from .gpu import gpu_info, initial_tile_size, map_device, use_reduced_precision
 
 
 def make_settings(config: Config, workflow: dict, gui_device: int, fp16: bool) -> dict:
@@ -70,6 +70,7 @@ class Backend:
         self.config, self.workflow = config, workflow
         self.info = gpu_info(config.cuda_device, required=True)
         self.cache: OrderedDict[str, object] = OrderedDict()
+        self.tile_limits: dict[str, int] = {}
         self.oom_retries = 0
         self.callback: Callable[[int, int, str], None] = lambda done, total, stage: None
         self.log = log_path.open("a", encoding="utf-8", buffering=1)
@@ -88,7 +89,7 @@ class Backend:
                 for d in get_accelerator_detector().available_devices
             ]
             gui, filtered = map_device(devices, config.cuda_device)
-            self.fp16 = config.precision == "auto" and self.info["fp16"]
+            self.fp16 = use_reduced_precision(config.precision, config.model, self.info)
             self.settings = make_settings(config, workflow, gui, self.fp16)
             with tempfile.TemporaryDirectory(prefix="manga-settings-") as folder:
                 settings_path = Path(folder) / "settings.json"
@@ -186,9 +187,16 @@ class Backend:
             progress(0, 1, "Chuẩn bị ảnh và model AI")
             queue: Queue = Queue()
             chain = chain.copy()
-            chain["ModelTileSize"] = (
-                str(self.config.tile) if self.config.tile else "Auto (Estimate)"
-            )
+            device = self.config.cuda_device
+            free, total = torch.cuda.mem_get_info(device)
+            # PyTorch can reuse its idle cache without asking the driver for more VRAM.
+            reusable = torch.cuda.memory_reserved(device) - torch.cuda.memory_allocated(device)
+            free = min(total, free + max(0, reusable))
+            tile = initial_tile_size(self.config.model, self.config.tile, free)
+            learned = self.tile_limits.get(model_path)
+            if learned:
+                tile = min(tile, learned) if tile else learned
+            chain["ModelTileSize"] = str(tile) if tile else "Auto (Estimate)"
             self.module.preprocess_worker_image(
                 queue,
                 str(source),
@@ -223,6 +231,7 @@ class Backend:
                             "CUDA OOM kể cả tile tối thiểu; chọn GPU nhiều VRAM hơn"
                         ) from exc
                     tile_size = self.module.get_tile_size(str(exc.tile))
+                    self.tile_limits[model_path] = exc.tile
                     torch.cuda.empty_cache()
                     progress(0, 1, f"Thiếu bộ nhớ · thử lại {attempt + 1} · phần {exc.tile} px")
             if not np.isfinite(result).all():
@@ -248,7 +257,9 @@ class Backend:
             "model_cache_hit": hit,
             "oom_retries": self.oom_retries - retries_before,
             "tile": int(tile_size),
-            "precision": "auto-half" if self.fp16 else "fp32",
+            "precision": {
+                "torch.float32": "fp32", "torch.float16": "fp16", "torch.bfloat16": "bf16",
+            }[str(model.dtype)],
         }
 
     def close(self) -> None:

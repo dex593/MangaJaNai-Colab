@@ -3,6 +3,20 @@ from __future__ import annotations
 from typing import Any
 
 
+def use_reduced_precision(precision: str, model: str, info: dict[str, Any]) -> bool:
+    # DAT rejects FP16; only use its BF16 path when the GPU supports it natively.
+    return precision == "auto" and info["fp16"] and (model != "manga-ora" or info["bf16"])
+
+
+def initial_tile_size(model: str, requested: int, free_bytes: int) -> int:
+    if requested or model != "manga-ora":
+        return requested
+    # Ora attention uses more working memory than the upstream parameter-count estimate.
+    if free_bytes >= 6 * 1024**3:
+        return 512
+    return 320 if free_bytes >= 2 * 1024**3 else 128
+
+
 def map_device(devices: list[dict], cuda_index: int) -> tuple[int, int]:
     """Return (GUI index including CPU, settings index excluding CPU)."""
     accelerated = [d for d in devices if d["type"] != "cpu"]
