@@ -24,14 +24,34 @@ flowchart LR
 
 1. Nhấn **Open in Colab**, chọn **Runtime → Change runtime type → GPU**, **Runtime Version: 2026.07 (Python 3.12)**. T4, L4 hoặc A100 đều được nếu Colab cấp GPU tương thích với PyTorch của runtime.
 2. Tạo thư mục `MyDrive/Manga/Input`, chép ảnh vào đó. Thư mục con được giữ nguyên.
-3. Cell 1: đặt input/output/cache, scale và định dạng. Mặc định 2x, PNG, resume bật, overwrite tắt.
-4. Cell 2: mount Drive và kiểm tra quyền truy cập.
-5. Cell 3: clone hoặc `git pull --ff-only` từ repo public. Có thể chọn branch hoặc pin SHA 40 ký tự.
-6. Cell 4: chạy `scripts/setup_colab.sh`; script giữ nguyên bộ PyTorch/torchvision/CUDA của Colab, cài dependency vào môi trường overlay.
-7. Cell 5: chạy CLI, xem model, tile thực tế, tiến độ, tốc độ và ETA.
-8. Cell 6: xem thống kê. Ảnh nằm trong `OUTPUT_DIR`; JSON, CSV, manifest và log nằm ở `OUTPUT_DIR/.manga-colab/`.
+3. **Bước 1 — Chọn thư mục và cách Upscale:** nhập nơi chứa ảnh gốc, nơi lưu ảnh đã Upscale và số lần Upscale. Giữ các tùy chọn nâng cao như mặc định nếu chưa cần đổi. Bấm ▶ để áp dụng lựa chọn.
+4. **Bước 2 — Kết nối Google Drive:** chọn tài khoản Google chứa ảnh và làm theo hướng dẫn cấp quyền trên màn hình.
+5. **Bước 3 — Tải bản chương trình mới nhất:** bấm ▶ và chờ báo hoàn tất. Không cần tài khoản GitHub hay mật khẩu.
+6. **Bước 4 — Chuẩn bị trước khi Upscale:** cài các thành phần cần thiết, kiểm tra card đồ họa và thư mục. Lần đầu có thể mất vài phút; chờ thông báo “Sẵn sàng”.
+7. **Bước 5 — Bắt đầu Upscale:** xem số ảnh tìm thấy, ảnh bỏ qua, ảnh đang chạy và thời gian còn lại ước tính.
+8. **Bước 6 — Xem kết quả:** ảnh nằm trong thư mục bạn chọn ở Bước 1. Nếu có lỗi, bảng kết quả sẽ ghi rõ ảnh nào và nguyên nhân.
+
+Mỗi “bước” là một ô có nút ▶ ở bên trái trong notebook (còn gọi là cell). Chạy lần lượt, đợi bước trước xong rồi mới chạy bước sau.
+
+| Ô cần điền ở Bước 1 | Cách chọn |
+|---|---|
+| Thư mục ảnh gốc | Đường dẫn đến thư mục chứa ảnh trên Drive, không phải link chia sẻ. Chương trình giữ nguyên ảnh gốc. |
+| Thư mục ảnh đã Upscale | Nơi lưu kết quả, phải khác thư mục ảnh gốc. Chưa có thì chương trình tự tạo. |
+| Thư mục model AI | Nơi giữ các tệp AI cần cho chương trình. Để trên Drive để lần sau không phải tải lại. |
+| Upscale gấp | `2` nghĩa là 1000 × 1500 thành 2000 × 3000. Có thể dùng từ `1` đến `4`, kể cả `1.5`. |
+| Định dạng ảnh | Chọn `png` nếu chưa biết chọn gì. |
+| Bỏ qua ảnh đã làm xong | Nên bật để tiếp tục công việc còn lại sau khi thêm ảnh hoặc bị ngắt. |
+| Làm lại ảnh cũ | Thường để tắt. Nếu bật, ảnh kết quả cũ sẽ được thay thế, kể cả khi đã bật bỏ qua ảnh cũ. |
+
+Nếu chưa biết đường dẫn thư mục: sau khi kết nối Drive ở Bước 2, mở bảng **Files** bên trái → **drive → MyDrive**, bấm chuột phải vào thư mục → **Copy path**. Dán vào ô tương ứng ở Bước 1, bấm ▶ Bước 1 rồi chạy lại Bước 2.
+
+**Khi thêm ảnh mới vào cùng thư mục:** đợi tải lên Drive xong rồi chạy lại **Bước 5**, sau đó **Bước 6**. Bật **Bỏ qua ảnh đã làm xong**, tắt **Làm lại ảnh cũ**. Chương trình đọc lại ảnh cũ để kiểm tra kết quả, nhưng không chạy AI lại cho ảnh đã hoàn tất và còn hợp lệ. Ảnh thêm trong khi đang chạy sẽ được nhận ở lượt kế tiếp. Nếu thay đổi các ô ở Bước 1, nhớ chạy lại Bước 1 để áp dụng; nếu Colab bị đặt lại thì chạy lại cả sáu bước.
+
+Trong phần kỹ thuật bên dưới, `INPUT_DIR`, `OUTPUT_DIR`, `RESUME`, `OVERWRITE` lần lượt tương ứng với **Thư mục ảnh gốc**, **Thư mục ảnh đã Upscale**, **Bỏ qua ảnh đã làm xong**, **Làm lại ảnh cũ**.
 
 Khi logic thay đổi, sửa source trên GitHub rồi chạy lại cell 3–6. Không cần sửa processing code trong notebook.
+
+**Cập nhật giao diện notebook:** một tab Colab đang mở không tự nhận thay đổi các ô từ GitHub. Khi có bản sửa giao diện, mở lại notebook bằng nút **Open in Colab**, hoặc chép các ô mới sang bản đang dùng. Cập nhật code xử lý bằng Bước 3 vẫn giữ nguyên cách hoạt động trên.
 
 ```python
 INPUT_DIR = "/content/drive/MyDrive/Manga/Input"
@@ -120,6 +140,7 @@ $PY -m manga_colab models list --models /path/models
 $PY -m manga_colab models download --input /path/input --models /path/models --scale 2
 $PY -m manga_colab run --input /path/input --output /path/output --dry-run
 $PY -m manga_colab run --config config/default.yaml --input /path/input --output /path/output --models /path/models
+$PY -m manga_colab report --output /path/output
 $PY -m manga_colab run --help
 ```
 
@@ -135,7 +156,11 @@ GUI index 0 là CPU, nhưng settings backend dùng danh sách accelerator bỏ C
 
 Tile auto dùng estimator của upstream. Khi OOM, chạy lại ảnh với tile nhỏ hơn, giữ nguyên overlap/blending và postprocessing. Tile nhỏ có thể gây khác biệt số học/context của mạng; không cam kết bit-identical giữa các kích thước tile. Model cache giữ tối đa hai descriptor, chuyển model không hoạt động sang CPU để tránh chiếm VRAM; thứ tự ảnh vẫn là natural sorting.
 
-Rich hiển thị dashboard, download bytes/s, tile đã hoàn tất, tiến độ tổng, ETA, thời gian mỗi ảnh và summary. Backend prints/debug đi vào `backend.log`, app log đi vào `application.log`. `report.json` và `report.csv` được cập nhật sau từng ảnh; summary phân biệt successful/failed/skipped/pending và liệt kê nguyên nhân lỗi. Tốc độ summary bao gồm scan/download/setup; tốc độ thanh batch tính từ vòng xử lý nên có thể khác nhau.
+Rich hiển thị bảng cấu hình, lượng model đã tải, tiến độ từng ảnh, thời gian còn lại ước tính và bảng kết quả. Trên Colab, chương trình truyền các bảng HTML qua subprocess rồi cập nhật tại chỗ; không dùng mã điều khiển con trỏ terminal trong notebook. Chỉ giữ tám thông báo gần nhất trên màn hình, không xóa log đầy đủ. Trên terminal vẫn dùng Rich trực tiếp.
+
+Thông tin kỹ thuật của bộ xử lý nằm trong `backend.log`, hoạt động ứng dụng nằm trong `application.log`, bên trong thư mục `.manga-colab` tại nơi lưu kết quả. `report.json` và `report.csv` được cập nhật sau từng ảnh; bảng kết quả phân biệt thành công, lỗi, bỏ qua và chưa xử lý, đồng thời ghi nguyên nhân lỗi. Tốc độ trung bình tính số ảnh thành công trong cả lượt (gồm thời gian quét/tải/khởi tạo); tốc độ thanh xử lý chỉ tính thời gian xử lý. Ảnh bỏ qua không được tính vào tốc độ Upscale.
+
+Bước cài đặt chỉ hiển thị bốn giai đoạn chính. Chi tiết nằm trong `/content/mangajanai-logs/setup.log`; nếu lỗi, phần cuối log hiện ngay trong notebook. Thông tin tải chương trình và kiểm tra máy nằm trong `source.log` và `doctor.log` cùng thư mục. Những file ở `/content` mất khi Colab cấp máy mới; log tiến độ trong thư mục kết quả trên Drive được giữ lại.
 
 ## Khắc phục lỗi
 

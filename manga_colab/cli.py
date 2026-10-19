@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
-from rich.console import Console
-
 from .config import Config, ROOT, load_yaml
+from .display import make_console, model_label
 
 
 def add_config(parser: argparse.ArgumentParser) -> None:
@@ -80,6 +80,8 @@ def parser() -> argparse.ArgumentParser:
     )
     scan = commands.add_parser("scan", help="Đọc nội dung ảnh, chọn model và ghi plan.json")
     add_config(scan)
+    report = commands.add_parser("report", help="Hiển thị báo cáo của lượt chạy đã lưu")
+    report.add_argument("--output", type=Path, required=True, help="Thư mục output của lượt chạy")
     doctor = commands.add_parser(
         "doctor", help="Kiểm tra GPU, native codecs, upstream, model và đường dẫn"
     )
@@ -108,8 +110,17 @@ def main(argv: list[str] | None = None) -> int:
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8")
     args = parser().parse_args(argv)
-    console = Console(highlight=False)
+    console = make_console()
     try:
+        if args.command == "report":
+            from .report import display_report
+
+            path = args.output / ".manga-colab/report.json"
+            if not path.is_file():
+                raise ValueError(f"Chưa có báo cáo: {path}. Xem log Cell 5 để biết lỗi.")
+            display_report(console, json.loads(path.read_text(encoding="utf-8")))
+            console.print(f"JSON / CSV / log: {path.parent}", style="dim")
+            return 0
         if args.command == "doctor":
             from .doctor import doctor
 
@@ -142,7 +153,7 @@ def main(argv: list[str] | None = None) -> int:
             with download_progress(console) as progress:
 
                 def factory(name: str, size: int):
-                    task = progress.add_task(name, total=size)
+                    task = progress.add_task(model_label(name), total=size)
                     return lambda done, _: progress.update(
                         task, completed=done, total=max(done, size)
                     )

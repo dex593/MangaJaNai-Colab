@@ -82,6 +82,28 @@ def test_changed_config_cannot_skip(config, write_image, isolated_backend):
     assert isolated_backend.calls == 1
 
 
+@pytest.mark.parametrize("staging", [False, True])
+def test_new_images_after_run_keep_old_outputs(config, write_image, isolated_backend, staging):
+    if staging:
+        config = replace(config, stage=config.input.parent / "stage")
+    write_image(config.input / "Chương 1/ページ1.png")
+    assert pipeline.run(config) == 0
+    output = config.output / "Chương 1/ページ1.png"
+    before = (output.read_bytes(), output.stat().st_mtime_ns)
+    write_image(config.input / "Chương 1/ページ2.jpg")
+    write_image(config.input / "Chương 2/ページ1.png", color=True)
+    assert pipeline.run(config) == 0
+    summary = report(config)["summary"]
+    assert summary["total"] == 3
+    assert summary["successful"] == 2
+    assert summary["skipped"] == 1
+    assert isolated_backend.calls == 3
+    assert (output.read_bytes(), output.stat().st_mtime_ns) == before
+    assert pipeline.run(config) == 0
+    assert report(config)["summary"]["skipped"] == 3
+    assert isolated_backend.calls == 3
+
+
 def test_failed_continues_and_retry_failed(config, write_image, isolated_backend):
     write_image(config.input / "one.png")
     write_image(config.input / "two.png")

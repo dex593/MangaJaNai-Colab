@@ -6,7 +6,7 @@ Ngày chạy: 2026-10-19. Không dùng kết quả giả lập làm bằng chứ
 
 - Windows: Python 3.12.6, NumPy 2.1.2, OpenCV 4.12.0, Pillow 10.4.0, Rich 13.9.2, libvips 8.16.1.
 - Linux/WSL: Python 3.12.3, môi trường riêng cài từ `pyproject.toml` + pyvips 3.0.0/pyvips-binary 8.16.1.
-- `python -m pytest -q`: **111 passed** trên cả hai hệ điều hành.
+- `python -m pytest -q`: **123 passed** trên Linux; **121 passed, 2 skipped** trên Windows. Hai bài kiểm tra gửi tín hiệu dừng cho cả nhóm tiến trình chỉ chạy trên Linux (môi trường Colab).
 - `ruff check manga_colab tests scripts`: pass.
 - `bash -n scripts/setup_colab.sh scripts/check_environment.sh`: pass trên Linux.
 - Notebook: sáu code cells parse được bằng Python AST, không có secrets/token, không có inference engine trong notebook.
@@ -14,6 +14,16 @@ Ngày chạy: 2026-10-19. Không dùng kết quả giả lập làm bằng chứ
 Phạm vi test: grayscale/color, pure B/W/uint8 overflow, threshold, mọi ranh giới height, scale 2/4 và chain priority, missing model, HTTP Range retries/truncated responses, invalid cache checksum, failed download không publish, manifest truncated tail, prepared recovery, source/config/model/workflow thay đổi, output corrupt, Unicode, duplicate filenames, recursive/excluded folders, multi-GPU index mapping, settings JSON, staging, dry-run, retry-failed, Ctrl+C và OOM control flow.
 
 `tests/test_pipeline.py` dùng test double ghi ảnh để cô lập logic checkpoint/file handling. `tests/test_oom.py` mô phỏng tín hiệu OOM, không làm cạn VRAM thật. Các test này không chứng minh chất lượng model.
+
+## Log và hướng dẫn phiên bản 0.1.1
+
+- Kiểm tra bằng subprocess thật: stdout, stderr, tiếng Việt/Nhật xuất hiện ở tiến trình gọi; sự kiện hiển thị được nhận **trước khi** tiến trình con kết thúc; lỗi cài đặt lưu log đầy đủ và hiện phần cuối lỗi.
+- Linux: ngắt tiến trình gửi SIGINT và tiếp tục đọc thông báo checkpoint trước khi nhận mã thoát 130.
+- Kiểm tra HTML thoát ký tự trong tên file, không chứa mã điều khiển ANSI; các lần cập nhật tiến độ dùng cùng display ID. Kiểm tra phần nối IPython bằng test double, không coi đó là một phiên Colab thật.
+- Kiểm tra thêm ảnh sau lượt đầu, có và không dùng chỗ lưu tạm: chỉ ảnh mới chạy, nội dung và thời điểm sửa output cũ giữ nguyên.
+- Chạy lại bằng **GPU và hai model 2x thật** nêu dưới: lượt đầu 2 thành công; thêm một ảnh rồi chạy lại được **1 thành công, 2 bỏ qua**, output cũ giữ nguyên cả byte và mtime. Toàn bộ lần chạy đi qua kênh truyền log mới.
+- Render bảng log HTML của lần chạy thật trong Chromium và xem ảnh chụp để kiểm tra bố cục, tiếng Việt, độ dễ đọc. Chưa kiểm tra trực tiếp trong giao diện Colab.
+- Kiểm tra notebook có sáu cell, các ô dùng tên dễ hiểu và ánh xạ đúng sang tham số CLI; Bước 5 tạo lại tham số mỗi lần chạy và gọi hàm truyền log.
 
 ## Smoke test inference thật
 

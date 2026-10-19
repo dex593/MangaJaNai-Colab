@@ -7,8 +7,13 @@ import time
 from collections import Counter
 from pathlib import Path
 
+from rich import box
+from rich.console import Group
+from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
+from .display import duration_label, model_label, size_label
 from .storage import atomic_json
 
 
@@ -62,16 +67,55 @@ def write_report(
 
 
 def display_report(console, report: dict) -> None:
-    table = Table(title="Kết quả")
-    table.add_column("Thống kê", style="cyan")
-    table.add_column("Giá trị")
-    for key, value in report["summary"].items():
-        table.add_row(key, f"{value:.3f}" if isinstance(value, float) else str(value))
-    console.print(table)
-    for row in report["images"]:
-        if row["status"] == "failed" or row.get("error"):
-            console.print(
-                f"{row['source']}: {row.get('error', row.get('reason', ''))}",
-                style="red",
-                markup=False,
-            )
+    summary = report["summary"]
+    table = Table(box=box.SIMPLE, expand=True, show_edge=False)
+    table.add_column("Tổng ảnh", justify="right")
+    table.add_column("Thành công", justify="right", style="green")
+    table.add_column("Bỏ qua", justify="right", style="cyan")
+    table.add_column("Lỗi", justify="right", style="red")
+    table.add_column("Chưa xử lý", justify="right", style="yellow")
+    table.add_row(
+        *(str(summary[key]) for key in ("total", "successful", "skipped", "failed", "pending"))
+    )
+    details = Table.grid(padding=(0, 3))
+    details.add_column(style="dim")
+    details.add_column()
+    for label, value in (
+        ("Thời gian", duration_label(summary["seconds"])),
+        ("Tốc độ trung bình", f"{summary['images_per_second']:.3f} ảnh thành công/s"),
+        (
+            "Dung lượng ảnh gốc / kết quả",
+            f"{size_label(summary['input_bytes'])} / {size_label(summary['output_bytes'])}",
+        ),
+        ("Thử lại do thiếu bộ nhớ card", str(summary["oom_retries"])),
+        ("Nơi lưu kết quả", report["config"].get("output", "—")),
+    ):
+        details.add_row(label, Text(value))
+    errors = [row for row in report["images"] if row["status"] == "failed" or row.get("error")]
+    interrupted = bool(summary["fatal"]) or summary["pending"] > 0
+    title = "LƯỢT CHẠY ĐÃ DỪNG" if interrupted else ("HOÀN TẤT CÓ LỖI" if errors else "HOÀN TẤT")
+    console.print(
+        Panel(
+            Group(table, "", details),
+            title=title,
+            title_align="left",
+            border_style="yellow" if errors or interrupted else "green",
+            padding=(1, 2),
+        )
+    )
+    if summary["models"]:
+        models = Table(box=box.SIMPLE, title="Model đã dùng trong lượt này", title_justify="left")
+        models.add_column("Model", style="cyan")
+        models.add_column("Ảnh thành công", justify="right")
+        for name, count in summary["models"].items():
+            models.add_row(model_label(name), str(count))
+        console.print(models)
+    if summary["fatal"]:
+        console.print(Text(summary["fatal"], style="red"))
+    if errors:
+        failures = Table(box=box.SIMPLE, title="File cần kiểm tra", title_justify="left")
+        failures.add_column("Ảnh", overflow="fold")
+        failures.add_column("Nguyên nhân", style="red", overflow="fold")
+        for row in errors:
+            failures.add_row(Text(row["source"]), Text(row.get("error", row.get("reason", ""))))
+        console.print(failures)

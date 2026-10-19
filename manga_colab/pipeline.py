@@ -15,7 +15,15 @@ from .backend import Backend
 from .checkpoint import Checkpoint
 from .config import Config, ROOT, UPSTREAM_COMMIT
 from .gpu import gpu_info
-from .logger import BatchProgress, configure, dashboard, download_progress, error_message
+from .display import model_label
+from .logger import (
+    BatchProgress,
+    configure,
+    dashboard,
+    download_progress,
+    error_message,
+    scan_progress,
+)
 from .model_manager import ModelManager
 from .model_selector import load_workflow
 from .report import display_report, write_report
@@ -36,8 +44,21 @@ def run(config: Config, dry_run: bool = False) -> int:
 def _run(config: Config, state: Path, started: float, dry_run: bool) -> int:
     console, log = configure(state / "application.log", config.log_level)
     workflow = load_workflow(config.workflow)
-    log.info("Đang quét nội dung ảnh, ICC và SHA-256 input...")
-    plan = build_plan(config, workflow)
+    log.info(
+        "Đọc lại thư mục ảnh gốc: %s\nĐang kiểm tra danh sách; chưa bắt đầu Upscale.", config.input
+    )
+    with scan_progress(console, config.log_level == "quiet") as scanning:
+        task = scanning.add_task("scan", total=1, detail="Đang lấy danh sách file")
+        plan = build_plan(
+            config,
+            workflow,
+            lambda done, total, name: scanning.update(
+                task,
+                completed=done,
+                total=total,
+                detail=name,
+            ),
+        )
     atomic_json(state / "plan.json", [item.as_json() for item in plan])
     if not plan:
         report = write_report(
@@ -121,33 +142,48 @@ def _run(config: Config, state: Path, started: float, dry_run: bool) -> int:
         dashboard(
             console,
             {
-                "Version / commit": f"{__version__} / {commit}",
-                "Upstream": UPSTREAM_COMMIT[:12],
-                "GPU": gpu["name"],
+                "Phiên bản / commit": f"{__version__} / {commit}",
+                "Bộ xử lý ảnh": UPSTREAM_COMMIT[:12],
+                "Card đồ họa": gpu["name"],
                 "CUDA / PyTorch": f"{gpu['cuda']} / {gpu['torch']}",
-                "VRAM free / total": f"{gpu['free']/2**30:.2f} / {gpu['total']/2**30:.2f} GiB",
-                "Compute / FP16 / BF16": f"{gpu['compute']} / {gpu['fp16']} / {gpu['bf16']}",
-                "Input": config.input,
-                "Output": config.output,
-                "Model cache": config.models,
-                "Target": f"{config.scale}x / {config.format}",
-                "Mode": f"AUTO / detector={config.detector}",
-                "Images": len(plan),
-                "Models to download": len(missing),
-                "Previously complete": sum(
+                "Bộ nhớ card trống / tổng": f"{gpu['free']/2**30:.2f} / {gpu['total']/2**30:.2f} GiB",
+                "Ảnh gốc": config.input,
+                "Lưu kết quả": config.output,
+                "Thư mục model AI": config.models,
+                "Upscale": f"{config.scale:g}×  ·  {config.format.upper()}",
+                "Chọn model": "Tự động, theo từng ảnh",
+                "Bỏ qua ảnh đã làm xong": "Bật" if config.resume else "Tắt",
+                "Làm lại ảnh cũ": "Bật" if config.overwrite else "Tắt",
+                "Ảnh tìm thấy": len(plan),
+                "Model cần tải": len(missing),
+                "Đã xong · bỏ qua": sum(
                     row["status"] == "skipped" and not row.get("error") for row in rows
                 ),
+                "Cần Upscale": len(pending),
+                "Lỗi cần kiểm tra": sum(bool(row.get("error")) for row in rows),
             },
         )
     backend = None
     fatal = ""
     code = 0
     try:
+        log.info(
+            "Kế hoạch: %d ảnh cần Upscale · %d ảnh bỏ qua · %d lỗi trước xử lý",
+            len(pending),
+            sum(row["status"] == "skipped" for row in rows),
+            sum(row["status"] == "failed" for row in rows),
+        )
+        if config.overwrite:
+            log.warning(
+                "Làm lại ảnh cũ đang BẬT: kết quả cũ sẽ được thay thế. Tắt tùy chọn này ở Bước 1 nếu chỉ muốn chạy ảnh mới."
+            )
         if pending:
-            with download_progress(console, config.log_level == "quiet") as downloads:
+            with download_progress(
+                console, config.log_level == "quiet" or not missing
+            ) as downloads:
 
                 def factory(name: str, size: int):
-                    task = downloads.add_task(name, total=size)
+                    task = downloads.add_task(model_label(name), total=size)
 
                     def update(done: int, _: int) -> None:
                         downloads.update(task, completed=done, total=max(done, size))
@@ -155,11 +191,13 @@ def _run(config: Config, state: Path, started: float, dry_run: bool) -> int:
                     return update
 
                 manager.ensure(needed, factory)
+            log.info(
+                "Chuẩn bị bộ xử lý ảnh và card đồ họa. Thông tin kỹ thuật: %s",
+                state / "backend.log",
+            )
             backend = Backend(config, workflow, state / "backend.log")
-        progress = BatchProgress(console, len(plan), config.log_level == "quiet")
+        progress = BatchProgress(console, len(pending), config.log_level == "quiet")
         with progress.progress:
-            for _ in rows:
-                progress.advance()
             for index, (item, row) in enumerate(pending):
                 image_start = time.monotonic()
                 output = config.output / item.output
@@ -173,11 +211,12 @@ def _run(config: Config, state: Path, started: float, dry_run: bool) -> int:
                     config.input
                 ) and not config.output.is_relative_to(config.input):
                     raise OSError("Output symlink trỏ vào input; từ chối ghi")
-                log.info(
-                    "[%d/%d] %s | %dx%d | %s | %s | disk cache HIT",
-                    index + 1,
-                    len(pending),
-                    item.source,
+                progress.image(
+                    index + 1, item.source, item.width, item.height, item.grayscale, item.model
+                )
+                log.info("▶ %d/%d  %s", index + 1, len(pending), item.source)
+                log.debug(
+                    "Input %dx%d | %s | %s | disk cache HIT",
                     item.width,
                     item.height,
                     "GRAYSCALE" if item.grayscale else "COLOR",
@@ -237,11 +276,11 @@ def _run(config: Config, state: Path, started: float, dry_run: bool) -> int:
                     row["status"] = "success"
                     manifest.append(row)
                     log.info(
-                        "✓ %s → %s | %.2fs | %s",
+                        "✓ %s → %s  ·  %.2f s  ·  %s × %s px",
                         item.source,
                         item.output,
                         row["seconds"],
-                        row["dimensions"],
+                        *row["dimensions"],
                     )
                 except OSError as exc:
                     row.update(
@@ -279,7 +318,7 @@ def _run(config: Config, state: Path, started: float, dry_run: bool) -> int:
                     if temp:
                         temp.unlink(missing_ok=True)
                 rows.append(row.copy())
-                progress.advance()
+                progress.advance(success=row["status"] == "success")
                 write_report(state, rows, len(plan), started, config.as_json())
     except KeyboardInterrupt:
         fatal, code = "Đã dừng an toàn bằng Ctrl+C; chạy lại --resume", 130
@@ -298,4 +337,5 @@ def _run(config: Config, state: Path, started: float, dry_run: bool) -> int:
             backend.close()
         report = write_report(state, rows, len(plan), started, config.as_json(), fatal)
         display_report(console, report)
+        console.print(f"Báo cáo và log: {state}", style="dim", markup=False)
     return code or (2 if any(row["status"] == "failed" or row.get("error") for row in rows) else 0)

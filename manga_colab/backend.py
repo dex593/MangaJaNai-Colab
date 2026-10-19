@@ -146,7 +146,7 @@ class Backend:
         tw, th = tiler.starting_tile_size(width, height, image.shape[2] if image.ndim == 3 else 1)
         done = 0
         total = math.ceil(width / tw) * math.ceil(height / th)
-        self.callback(0, total, f"tile {tw}×{th}")
+        self.callback(0, total, f"Mỗi phần: {tw}×{th} px")
 
         def tracked(tile, region):
             nonlocal done
@@ -155,7 +155,7 @@ class Backend:
                 # Restart the image instead of upstream's buggy mid-row OOM restart.
                 raise TileOOM(max(16, min(tw, th) // 2))
             done += 1
-            self.callback(done, max(done, total), f"tile {tw}×{th}")
+            self.callback(done, max(done, total), f"Mỗi phần: {tw}×{th} px")
             return result
 
         return self.original_split(image, tracked, tiler, overlap)
@@ -183,7 +183,7 @@ class Backend:
                 while len(self.cache) >= 2:
                     self.cache.popitem(last=False)
                 torch.cuda.empty_cache()
-            progress(0, 1, "preprocess / load model")
+            progress(0, 1, "Chuẩn bị ảnh và model AI")
             queue: Queue = Queue()
             chain = chain.copy()
             chain["ModelTileSize"] = (
@@ -224,12 +224,12 @@ class Backend:
                         ) from exc
                     tile_size = self.module.get_tile_size(str(exc.tile))
                     torch.cuda.empty_cache()
-                    progress(0, 1, f"OOM retry {attempt + 1}: tile={exc.tile}")
+                    progress(0, 1, f"Thiếu bộ nhớ · thử lại {attempt + 1} · phần {exc.tile} px")
             if not np.isfinite(result).all():
                 raise ValueError("AI output chứa NaN/Inf; thử --precision fp32")
             if gray:
                 result = self.module.convert_image_to_grayscale(result)
-            progress(0, 1, "postprocess / ICC / save")
+            progress(0, 1, "Hoàn thiện và lưu ảnh")
             self.module.save_image(
                 result,
                 str(destination),
@@ -243,7 +243,7 @@ class Backend:
                 0,
                 gray,
             )
-            progress(1, 1, "saved; verifying")
+            progress(1, 1, "Đã lưu tạm · đang kiểm tra")
         return {
             "model_cache_hit": hit,
             "oom_retries": self.oom_retries - retries_before,
