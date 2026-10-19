@@ -14,6 +14,24 @@
     "author": "end user license agreement (eula)",
     "license": "CC-BY-NC-SA-4.0"
   },
+  "mangascale-gfisrv2": {
+    "label": "MangaScale GFISRV2 · 4x",
+    "filename": "4x_wtp_MangaScale_GfisrV2.safetensors",
+    "architecture": "GFISRV2",
+    "scale": 4,
+    "input_channels": 3,
+    "output_channels": 3,
+    "size": 16886143,
+    "sha256": "24eac2a9fca70e677a7bc98440f80327f168d713c06ecc00fb73b12a9d7a2343",
+    "checksum_provenance": "Computed from the file downloaded from the supplied author folder on 2026-10-20; no author-published checksum found",
+    "google_drive_id": "16arU7dkBe9jalWx1GbEpCWrz4c4lNWD0",
+    "download_url": "https://drive.google.com/file/d/16arU7dkBe9jalWx1GbEpCWrz4c4lNWD0/view",
+    "source": "https://drive.google.com/drive/folders/1ZN2UDOt97HAseMJww1C0GcbkbGZPuxqM",
+    "architecture_source": "https://github.com/rewaifu/resselt/tree/4a0c2c163f0ba98b7c548221590bec27fe80a861/resselt/archs/gfisrv2",
+    "author": "Umzi",
+    "license": "CC-BY-4.0",
+    "license_provenance": "Model announcement supplied by the user, dated 2025-10-13"
+  },
   "manga-ora": {
     "label": "Manga Ora · 2x",
     "filename": "2x_Manga_Ora.pth",

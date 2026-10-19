@@ -1,3 +1,3 @@
 """MangaJaNai-Colab: orchestration around the original GPL-3.0 backend."""
 
-__version__ = "0.2.1"
+__version__ = "0.3.0"

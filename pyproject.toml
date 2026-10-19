@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mangajanai-colab"
-version = "0.2.1"
+version = "0.3.0"
 description = "Resumable Google Colab launcher and batch runner for the original MangaJaNai backend"
 requires-python = ">=3.11,<3.13"
 license = "GPL-3.0-only"
@@ -29,7 +29,7 @@ manga-colab = "manga_colab.cli:main"
 include = ["manga_colab*"]
 
 [tool.setuptools.package-data]
-manga_colab = ["data/*.json"]
+manga_colab = ["data/*.json", "_vendor/*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -37,7 +37,7 @@ markers = ["integration: requires the installed upstream backend", "gpu: require
 
 [tool.ruff]
 line-length = 100
-extend-exclude = ["manga_colab/upstream_logic.py"]
+extend-exclude = ["manga_colab/upstream_logic.py", "manga_colab/_vendor"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F"]

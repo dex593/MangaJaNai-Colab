@@ -110,9 +110,12 @@ def doctor(
         import spandrel_custom
 
         spandrel_custom.install(ignore_duplicates=True)
+        from .extra_arches import install
+
+        install()
         from spandrel import MAIN_REGISTRY
 
-        return f"{actual[:12]} · FDAT sẵn sàng ({len(MAIN_REGISTRY.architectures())} kiến trúc)"
+        return f"{actual[:12]} · FDAT/GFISRV2 sẵn sàng ({len(MAIN_REGISTRY.architectures())} kiến trúc)"
 
     check("Bộ xử lý ảnh", upstream)
     if any(

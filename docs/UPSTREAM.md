@@ -54,6 +54,14 @@ Mỗi chế độ bổ sung tạo một chain duy nhất, không giới hạn ch
 
 Từ 0.2.1, Ora dùng `use_fp16=False` khi GPU không có BF16 phần cứng. Spandrel 0.4.1 khai báo DAT `supports_half=False`, trong khi kiểm tra `torch.cuda.is_bf16_supported()` của upstream có thể chấp nhận BF16 mô phỏng. Adapter dựa trên capability GPU để tránh đường này trên T4; không ép FP16 không được model hỗ trợ. Auto tile Ora dùng ngưỡng VRAM trống 512/320/128 px thay estimator dựa trên dung lượng weights của upstream, cộng phần cache PyTorch chưa có tensor sử dụng. Sau OOM, giới hạn tile được lưu theo đường dẫn model trong phiên Backend để ảnh sau không thử lại mức đã thất bại. Kết quả đã hoàn tất vẫn được giữ khi resume; có thể chọn làm lại tất cả nếu muốn tạo lại với chính sách mới.
 
+### MangaScale GFISRV2 (0.3.0)
+
+File xác minh trong thư mục Drive người dùng cung cấp: `4x_wtp_MangaScale_GfisrV2.safetensors`, ID `16arU7dkBe9jalWx1GbEpCWrz4c4lNWD0`, 16.886.143 bytes. SHA-256 do project tính sau khi tải thật: `24eac2a9fca70e677a7bc98440f80327f168d713c06ecc00fb73b12a9d7a2343`. Không tìm thấy checksum do tác giả công bố; catalog ghi rõ nguồn của checksum và giấy phép weights (CC BY 4.0 theo bài giới thiệu được cung cấp).
+
+Spandrel 0.4.1 chưa có GFISRV2. Project giữ nguyên `resselt/archs/gfisrv2/arch.py` từ [resselt commit 4a0c2c163f0ba98b7c548221590bec27fe80a861](https://github.com/rewaifu/resselt/tree/4a0c2c163f0ba98b7c548221590bec27fe80a861), kèm giấy phép MIT. SHA-256 source: `441368e7ebab3b40ca31ac66200c2deb7aad7ae366b07408853b2f27fe78f8a6`. Module `extra_arches.py` đăng ký descriptor Spandrel cho đúng bản 4x RGB mặc định, xác minh metadata và load state dict strict. Không cài toàn bộ resselt vì package này có ràng buộc Torch/safetensors khác runtime; không đổi phép tính FFT hoặc tự viết mạng thay thế.
+
+GFISRV2 có 4.208.736 parameters. FP16 đã thử trên model thật; FFT bên trong source gốc chuyển sang FP32 rồi trở về dtype ban đầu. Tiling dùng cùng overlap/blending của backend, nhưng FFT có ngữ cảnh toàn tile nên các tile size khác nhau có thể cho kết quả khác nhau. Mặc định chọn 1024/512/256 theo VRAM trống, có OOM fallback và nhớ giới hạn trong batch.
+
 ## Colab runtime
 
 [Colab runtime FAQ](https://research.google.com/colaboratory/runtime-version-faq.html) và [backend-info](https://github.com/googlecolab/backend-info) được kiểm tra trực tiếp. Snapshot main tại thời điểm nghiên cứu có Python 3.13 wheels của torch 2.11.0, torchvision 0.26.0, numpy 2.1.3 và Pillow 11.3.0. Snapshot CPU không đồng nghĩa GPU runtime của người dùng có cùng CUDA build; script luôn kiểm tra runtime thực tế.

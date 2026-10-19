@@ -3,7 +3,7 @@
 [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/dex593/MangaJaNai-Colab/blob/main/colab/Run_MangaJaNai.ipynb)
 [![Tests](https://github.com/dex593/MangaJaNai-Colab/actions/workflows/tests.yml/badge.svg)](https://github.com/dex593/MangaJaNai-Colab/actions/workflows/tests.yml)
 
-Upscale thư mục manga trên Google Drive bằng **model thật và backend gốc MangaJaNaiConverterGui**. Có ba lựa chọn: **MangaJaNai tự động**, **Eula Digimanga BW V2 NC1**, **2x Manga Ora**. Tự tải model cần thiết, lưu kết quả an toàn và tiếp tục sau khi Colab ngắt phiên.
+Upscale thư mục manga trên Google Drive bằng **model thật và backend gốc MangaJaNaiConverterGui**. Có bốn lựa chọn: **MangaJaNai tự động**, **Eula Digimanga BW V2 NC1**, **2x Manga Ora**, **MangaScale GFISRV2 4x**. Tự tải model cần thiết, lưu kết quả an toàn và tiếp tục sau khi Colab ngắt phiên.
 
 Repository public; notebook không dùng Colab Secrets, token hay đăng nhập GitHub.
 
@@ -15,7 +15,7 @@ flowchart LR
     C --> P[Python CLI]
     D[Drive: input] --> P
     R[Official GitHub Releases] -->|selected ZIP members| M[Drive: model cache]
-    E[OpenModelDB / Google Drive đã xác minh] -->|Eula / Ora + SHA-256| M
+    E[OpenModelDB / Google Drive đã xác minh] -->|Eula / Ora / MangaScale + SHA-256| M
     M --> P
     P --> U[Upstream: preprocessing → PyTorch → ICC downscale]
     U --> O[Drive: output + manifest + reports]
@@ -39,8 +39,8 @@ Mỗi “bước” là một ô có nút ▶ ở bên trái trong notebook (cò
 | Ảnh | Đường dẫn đến thư mục chứa ảnh gốc trên Drive, không phải link chia sẻ. Chương trình giữ nguyên ảnh gốc. |
 | Lưu | Thư mục lưu ảnh đã Upscale, phải khác thư mục ảnh gốc. Chưa có thì chương trình tự tạo. |
 | AI | Nơi giữ các tệp AI cần cho chương trình. Để trên Drive để lần sau không phải tải lại. |
-| Bộ | Chọn **MangaJaNai (tự chọn)**, **Eula Digimanga BW V2 NC1** hoặc **2x Manga Ora**. |
-| Upscale | `2` nghĩa là 1000 × 1500 thành 2000 × 3000. MangaJaNai/Eula hỗ trợ `1`–`4`, Ora hỗ trợ `1`–`2`; có thể nhập `1.5`. |
+| Bộ | Chọn **MangaJaNai (tự chọn)**, **Eula Digimanga BW V2 NC1**, **2x Manga Ora** hoặc **MangaScale GFISRV2 4x**. |
+| Upscale | `2` nghĩa là 1000 × 1500 thành 2000 × 3000. MangaJaNai/Eula/MangaScale hỗ trợ `1`–`4`, Ora hỗ trợ `1`–`2`; có thể nhập `1.5`. |
 | Đuôi | Định dạng ảnh kết quả. Chọn `png` nếu chưa biết chọn gì. |
 | Chạy | Mặc định **Chỉ Upscale ảnh chưa làm**: giữ kết quả đã hoàn tất. Chọn **Upscale lại tất cả ảnh** khi muốn làm lại và thay thế kết quả cũ. Chỉ chọn được một trong hai cách. |
 | Thử | Bật để thử lại những ảnh bị lỗi ở lần trước, sau khi đã xử lý nguyên nhân. |
@@ -53,7 +53,7 @@ Nếu chưa biết đường dẫn thư mục: sau khi kết nối Drive ở Bư
 
 Bước 5 lưu dữ liệu còn chờ lên Drive rồi kết nối lại trước mỗi lượt, để xử lý tình trạng Colab vẫn thấy danh sách cũ khi bạn tải ảnh qua trang Google Drive. Nếu Google hỏi quyền kết nối lại, làm theo hướng dẫn trên màn hình. Không cần cài lại ở Bước 4. Nếu chưa lưu được dữ liệu lên Drive, chương trình dừng và báo lỗi, không ép kết nối lại. Việc kết nối lại ảnh hưởng tới toàn bộ Drive trong phiên Colab, vì vậy không chạy tác vụ khác đang ghi Drive cùng lúc. Cách xử lý này đã kiểm tra thứ tự gọi và các nhánh lỗi; chưa xác minh trên một phiên Drive thật.
 
-Trong phần kỹ thuật bên dưới, `INPUT_DIR` tương ứng với ô **Ảnh**; `OUTPUT_DIR` là ô **Lưu** cộng thư mục riêng của Eula/Ora nếu chọn các bộ AI này. Lựa chọn **Chỉ Upscale ảnh chưa làm** bật `RESUME`, tắt `OVERWRITE`; lựa chọn **Upscale lại tất cả ảnh** làm ngược lại. Biểu mẫu không có hai ô bật/tắt độc lập cho hai cách này.
+Trong phần kỹ thuật bên dưới, `INPUT_DIR` tương ứng với ô **Ảnh**; `OUTPUT_DIR` là ô **Lưu** cộng thư mục riêng của Eula/Ora/MangaScale nếu chọn các bộ AI này. Lựa chọn **Chỉ Upscale ảnh chưa làm** bật `RESUME`, tắt `OVERWRITE`; lựa chọn **Upscale lại tất cả ảnh** làm ngược lại. Biểu mẫu không có hai ô bật/tắt độc lập cho hai cách này.
 
 Khi logic thay đổi, sửa source trên GitHub rồi chạy lại cell 3–6. Không cần sửa processing code trong notebook.
 
@@ -69,23 +69,26 @@ OUTPUT_FORMAT = "png"
 
 Chỉ xử lý ảnh PNG, JPG/JPEG, WebP, BMP và AVIF nếu libvips có decoder. Đọc bằng libvips, chuyển ICC sang sRGB giống upstream. Trong chế độ MangaJaNai tự chọn, nội dung ảnh quyết định model; extension chỉ dùng để tìm file. Tên Việt/Nhật/Unicode được hỗ trợ; thứ tự tự nhiên là `page2` trước `page10`.
 
-## Ba bộ AI để chọn
+## Bốn bộ AI để chọn
 
 | Chọn ở ô Bộ | Số lần Upscale | Cách xử lý |
 |---|---|---|
 | MangaJaNai (tự chọn) | 1–4 | Giữ workflow gốc: tự chọn MangaJaNai cho manga đen trắng và IllustrationJaNai V3 cho ảnh màu. |
 | Eula Digimanga BW V2 NC1 | 1–4 | Model ESRGAN 4x, một kênh đen trắng. Ảnh màu được báo lỗi riêng; các ảnh đen trắng khác vẫn chạy. |
 | 2x Manga Ora | 1–2 | Model DAT 2x cho manga; nhận ảnh một kênh hoặc RGB qua backend. Tác giả mô tả mục tiêu khôi phục screentone và giảm lỗi nén, chủ yếu cho trang rộng 650–900 px. |
+| MangaScale GFISRV2 4x | 1–4 | Model `4x_wtp_MangaScale_GfisrV2` của Umzi, RGB, dùng FFT để xử lý chi tiết và screentone. Nhận ảnh đen trắng và màu; chạy AI 4x rồi giảm về kích thước cuối nếu chọn dưới 4x. |
 
-Chọn bộ AI ở Bước 1 rồi chạy Bước 1 để áp dụng. Kết quả MangaJaNai giữ nguyên nơi lưu bạn đã chọn. Eula lưu ở thư mục con **Eula Digimanga**, Ora lưu ở **Manga Ora**. Mỗi nơi có tiến độ riêng, nên bạn có thể thử các bộ AI trên cùng bộ ảnh. Thư mục kết quả cũ có `.manga-colab` được loại khỏi lần quét sau nếu nằm trong thư mục ảnh gốc. CLI dùng chính đường dẫn `--output` được truyền vào; người dùng CLI chọn thư mục riêng theo ví dụ bên dưới.
+Chọn bộ AI ở Bước 1 rồi chạy Bước 1 để áp dụng. Kết quả MangaJaNai giữ nguyên nơi lưu bạn đã chọn. Eula lưu ở thư mục con **Eula Digimanga**, Ora lưu ở **Manga Ora**, MangaScale lưu ở **MangaScale GFISRV2**. Mỗi nơi có tiến độ riêng, nên bạn có thể thử các bộ AI trên cùng bộ ảnh. Thư mục kết quả cũ có `.manga-colab` được loại khỏi lần quét sau nếu nằm trong thư mục ảnh gốc. CLI dùng chính đường dẫn `--output` được truyền vào; người dùng CLI chọn thư mục riêng theo ví dụ bên dưới.
 
-Hai chế độ mới dùng đúng model đã chọn cho mọi kích thước trang, không dùng các mốc chiều cao của MangaJaNai. Không bật auto levels của MangaJaNai cho hai model này. Kích thước cuối nhỏ hơn hệ số model được xử lý bằng `final_target_resize` gốc, gồm ICC downscaling cho ảnh đen trắng. Ora không nhận yêu cầu trên 2x để tránh phải thay model hoặc Upscale lặp mà bạn không chọn.
+Eula, Ora và MangaScale dùng đúng model đã chọn cho mọi kích thước trang, không dùng các mốc chiều cao của MangaJaNai và không bật auto levels. Kích thước cuối nhỏ hơn hệ số model được xử lý bằng `final_target_resize` gốc, gồm ICC downscaling cho ảnh đen trắng. Ora không nhận yêu cầu trên 2x để tránh phải thay model hoặc Upscale lặp mà bạn không chọn.
 
 **Model 4x có dùng để tạo ảnh 2x được không?** Có. Chọn Eula rồi đặt ô **Upscale = 2**: chương trình chạy AI 4x trước, sau đó giảm về kích thước 2x. Ví dụ ảnh 1000 × 1500 đi qua 4000 × 6000 rồi cho kết quả 2000 × 3000. Cách này đã được thử với Eula trên GPU thật; vẫn phải xử lý ảnh ở 4x và không đảm bảo đẹp hơn model 2x chuyên dụng.
 
 Riêng Eula dùng bộ nhận diện `corrected` có sẵn để ảnh RGB chỉ chứa đen/trắng tuyệt đối vẫn được nhận đúng. Chế độ MangaJaNai mặc định giữ nguyên nhận diện upstream. Eula không tự chuyển ảnh màu sang đen trắng. Manga Ora nhận RGB nhưng được huấn luyện cho manga; với bìa màu, nên dùng chế độ MangaJaNai.
 
 Nguồn mô tả và giấy phép: [Eula trên OpenModelDB](https://openmodeldb.info/models/4x-eula-digimanga-bw-v2-nc1), [Manga Ora trên OpenModelDB](https://openmodeldb.info/models/2x-Manga-Ora). Hai model đều ghi **CC-BY-NC-SA-4.0**; xem điều khoản từ nguồn trước khi dùng. Tác giả được ghi công: Eula và Ora/null.
+
+MangaScale GFISRV2 dùng **CC BY 4.0** theo bài công bố của Umzi ngày 13/10/2025 do người dùng cung cấp. Model tải từ [thư mục được dẫn trong bài](https://drive.google.com/drive/folders/1ZN2UDOt97HAseMJww1C0GcbkbGZPuxqM). Số FPS/VRAM trong bài giới thiệu là phép đo của tác giả, không phải benchmark Colab của project. Tốc độ và kết quả kiểm tra thực tế được ghi riêng trong [VALIDATION.md](docs/VALIDATION.md).
 
 ## Auto model của MangaJaNai
 
@@ -131,16 +134,17 @@ Nếu API rate limit, server không hỗ trợ Range hoặc asset thay đổi, c
 
 `scripts/build_catalog.py` dành cho maintainer: tải toàn bộ hai archive để kiểm chứng lại catalog. Người dùng bình thường không chạy script này.
 
-### Tải Eula và Manga Ora
+### Tải Eula, Manga Ora và MangaScale
 
-Chỉ tải model của bộ AI đang chọn, cache chung ở ô **AI**. Tệp được tải vào `.part`, kiểm tra dung lượng và SHA-256 theo OpenModelDB, rồi mới đổi sang tên chính thức trong cache. Có tiến độ theo số byte thực và thử lại khi mất mạng; không dùng tệp chưa hoàn tất. `gdown 6.4.2` xử lý liên kết Google Drive công khai, không đọc cookie đăng nhập, không dùng Colab Secrets hay token.
+Chỉ tải model của bộ AI đang chọn, cache chung ở ô **AI**. Tệp được tải vào `.part`, kiểm tra dung lượng và SHA-256 trong catalog, rồi mới đổi sang tên chính thức trong cache. Có tiến độ theo số byte thực và thử lại khi mất mạng; không dùng tệp chưa hoàn tất. `gdown 6.4.2` xử lý liên kết Google Drive công khai, không đọc cookie đăng nhập, không dùng Colab Secrets hay token.
 
 | Model | Tệp trong cache | Nguồn tải đã kiểm tra |
 |---|---|---|
 | Eula 4x | `4x-eula-digimanga-bw-v2-nc1.pth` · 67.010.885 bytes | [Tệp do OpenModelDB liên kết](https://objectstorage.us-phoenix-1.oraclecloud.com/n/ax6ygfvpvzka/b/open-modeldb-files/o/4x-eula-digimanga-bw-v2-nc1.pth) |
 | Manga Ora 2x | `2x_Manga_Ora.pth` · 45.723.706 bytes | [Bản Google Drive do người dùng cung cấp](https://drive.google.com/file/d/1BWnJMFEGbP_uyMEnIruh5u6Xhy6Q0eV5/view), đã tải và khớp SHA-256 với OpenModelDB; không gọi đây là nguồn của tác giả. [Nguồn gốc được OpenModelDB dẫn tới](https://drive.proton.me/urls/S0NC2P0T8R#wo0OdPrwbKZO) |
+| MangaScale GFISRV2 4x | `4x_wtp_MangaScale_GfisrV2.safetensors` · 16.886.143 bytes | [Tệp đã kiểm tra trong thư mục được cung cấp](https://drive.google.com/file/d/16arU7dkBe9jalWx1GbEpCWrz4c4lNWD0/view). Chọn bản safetensors, không tải bản ONNX. |
 
-Checksum và nguồn metadata được pin tại commit OpenModelDB `782aac088bd83dd3fc438a42eb0c3868dc559110`, trong [extra_models.json](manga_colab/data/extra_models.json). Nếu Google Drive hết lượt tải, liên kết bị xóa hoặc tệp thay đổi, chương trình báo lỗi kèm nguồn và nơi cài thủ công. Tải đúng tệp từ liên kết trên, lưu đúng tên vào thư mục AI rồi chạy lại Bước 5. Tệp khác checksum sẽ không được chấp nhận.
+Checksum Eula/Ora lấy từ metadata OpenModelDB commit `782aac088bd83dd3fc438a42eb0c3868dc559110`. Checksum MangaScale do project tính từ tệp tải thật ngày 20/10/2026, vì chưa tìm thấy checksum do tác giả công bố. Nguồn từng giá trị được ghi trong [extra_models.json](manga_colab/data/extra_models.json). Nếu Google Drive hết lượt tải, liên kết bị xóa hoặc tệp thay đổi, chương trình báo lỗi kèm nguồn và nơi cài thủ công. Tải đúng tệp từ liên kết trên, lưu đúng tên vào thư mục AI rồi chạy lại Bước 5. Tệp khác checksum sẽ không được chấp nhận.
 
 ## Resume, an toàn dữ liệu và staging
 
@@ -181,6 +185,8 @@ $PY -m manga_colab run --input /path/input --output /path/output/eula \
 $PY -m manga_colab run --input /path/input --output /path/output/ora \
   --models /path/models --model manga-ora --scale 2 --resume
 $PY -m manga_colab models download --input /path/input --models /path/models --model manga-ora
+$PY -m manga_colab run --input /path/input --output /path/output/mangascale \
+  --models /path/models --model mangascale-gfisrv2 --scale 2 --resume
 $PY -m manga_colab run --help
 ```
 
@@ -197,6 +203,8 @@ GUI index 0 là CPU, nhưng settings backend dùng danh sách accelerator bỏ C
 Tile auto của MangaJaNai/Eula dùng estimator upstream. Riêng Ora bắt đầu ở 512 px nếu còn ít nhất 6 GiB VRAM, 320 px nếu còn ít nhất 2 GiB, dưới đó dùng 128 px; tính cả cache trống PyTorch có thể tái sử dụng. Đây là mức khởi đầu thận trọng, không phải cam kết hết OOM hoặc cấu hình nhanh nhất cho mọi GPU. Khi OOM, chạy lại ảnh với tile nhỏ hơn và nhớ giới hạn mới cho cùng model trong lượt chạy, giữ nguyên overlap/blending và postprocessing. Tile nhỏ có thể gây khác biệt số học/context của mạng; không cam kết bit-identical giữa các kích thước tile. Model cache giữ tối đa hai descriptor, chuyển model không hoạt động sang CPU để tránh chiếm VRAM; thứ tự ảnh vẫn là natural sorting.
 
 **Nếu Ora chạy lâu trên T4:** dừng Bước 5, chờ chương trình thoát rồi chạy lại **Bước 3 → 4 → 5 → 6** để lấy bản sửa. Giữ lựa chọn **Chỉ Upscale ảnh chưa làm** để giữ ảnh đã hoàn tất; bật ô **Thử** và chạy lại Bước 1 nếu muốn thử lại ảnh từng báo lỗi. Bản sửa tránh những lần thử phần ảnh quá lớn và tránh BF16 mô phỏng; Ora vẫn là model DAT tốn tính toán. Giảm kết quả từ 2x xuống 1.5x không giảm phần inference của model, vì AI vẫn chạy 2x trước khi giảm kích thước cuối.
+
+MangaScale dùng FP16 khi GPU hỗ trợ, hoặc FP32 nếu chọn rõ bằng CLI. Auto tile bắt đầu ở 1024 px khi còn ít nhất 6 GiB VRAM, 512 px khi còn ít nhất 2 GiB, dưới đó dùng 256 px; có tính cache tái sử dụng và giảm tiếp nếu OOM. FFT dùng thông tin trên toàn phần ảnh nên thay tile có thể thay đổi chi tiết, không đảm bảo kết quả giống hệt xử lý nguyên trang.
 
 Rich hiển thị bảng cấu hình, lượng model đã tải, tiến độ từng ảnh, thời gian còn lại ước tính và bảng kết quả. Trên Colab, chương trình truyền các bảng HTML qua subprocess rồi cập nhật tại chỗ; không dùng mã điều khiển con trỏ terminal trong notebook. Chỉ giữ tám thông báo gần nhất trên màn hình, không xóa log đầy đủ. Trên terminal vẫn dùng Rich trực tiếp.
 
@@ -236,4 +244,4 @@ Không có web server, Gradio, xử lý archive manga CBZ/CBR hay multi-GPU sche
 
 ## Giấy phép và upstream
 
-Code của project là **GPL-3.0-only**, xem [LICENSE](LICENSE). Hai hàm thuần cho detector/chain được chép từ upstream và ghi provenance trong file; inference không vendor. Backend tải đúng commit đã pin; các sửa đổi được ghi ở [docs/UPSTREAM.md](docs/UPSTREAM.md). Repository model MangaJaNai công bố [CC BY-NC 4.0](https://github.com/the-database/MangaJaNai/blob/main/LICENSE), có điều kiện ghi công và phi thương mại; kiểm tra thêm điều khoản từng release trước khi dùng. Eula và Manga Ora dùng **CC-BY-NC-SA-4.0** theo nguồn đã dẫn ở phần chọn bộ AI. Giấy phép code không thay giấy phép weights. Không commit weights, ảnh input/output, Drive, token hoặc cache vào repo.
+Code của project là **GPL-3.0-only**, xem [LICENSE](LICENSE). Hai hàm thuần cho detector/chain được chép từ upstream và ghi provenance trong file. Riêng kiến trúc GFISRV2 được lấy nguyên văn từ resselt, giấy phép MIT và nguồn được giữ tại [manga_colab/_vendor](manga_colab/_vendor/README.md). Backend tải đúng commit đã pin; các sửa đổi được ghi ở [docs/UPSTREAM.md](docs/UPSTREAM.md). Repository model MangaJaNai công bố [CC BY-NC 4.0](https://github.com/the-database/MangaJaNai/blob/main/LICENSE), có điều kiện ghi công và phi thương mại; kiểm tra thêm điều khoản từng release trước khi dùng. Eula và Manga Ora dùng **CC-BY-NC-SA-4.0**; MangaScale dùng **CC BY 4.0** theo nguồn đã dẫn ở phần chọn bộ AI. Giấy phép code không thay giấy phép weights. Không commit weights, ảnh input/output, Drive, token hoặc cache vào repo.

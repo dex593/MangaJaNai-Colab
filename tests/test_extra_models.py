@@ -83,16 +83,27 @@ def test_model_change_changes_resume_fingerprint(config):
         fingerprints.append(
             config.fingerprint(workflow, manager.entry(chain["ModelFilePath"])["sha256"])
         )
-    assert len(set(fingerprints)) == 3
+    assert len(set(fingerprints)) == 1 + len(EXTRA_MODELS)
 
 
 def test_extra_catalog_has_published_checksums_and_sources():
     assert EXTRA_MODELS["eula-digimanga"]["size"] == 67010885
     assert EXTRA_MODELS["manga-ora"]["size"] == 45723706
     for entry in EXTRA_MODELS.values():
-        assert entry["license"] == "CC-BY-NC-SA-4.0"
-        assert entry["source"].startswith("https://openmodeldb.info/models/")
+        if entry["architecture"] == "GFISRV2":
+            assert entry["license"] == "CC-BY-4.0"
+            assert entry["size"] == 16886143
+            assert entry["google_drive_id"] == "16arU7dkBe9jalWx1GbEpCWrz4c4lNWD0"
+            assert "no author-published checksum" in entry["checksum_provenance"]
+        else:
+            assert entry["license"] == "CC-BY-NC-SA-4.0"
+            assert entry["source"].startswith("https://openmodeldb.info/models/")
         assert len(bytes.fromhex(entry["sha256"])) == 32
+
+
+def test_gfisrv2_four_times_color_chain():
+    chain = select_chain(800, 1200, False, 4, load_workflow(model="mangascale-gfisrv2"))
+    assert chain["ModelFilePath"] == "4x_wtp_MangaScale_GfisrV2.safetensors"
 
 
 def test_scanning_excludes_other_models_previous_outputs(config, write_image):

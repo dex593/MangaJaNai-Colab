@@ -9,8 +9,10 @@ def use_reduced_precision(precision: str, model: str, info: dict[str, Any]) -> b
 
 
 def initial_tile_size(model: str, requested: int, free_bytes: int) -> int:
-    if requested or model != "manga-ora":
+    if requested or model not in ("manga-ora", "mangascale-gfisrv2"):
         return requested
+    if model == "mangascale-gfisrv2":
+        return 1024 if free_bytes >= 6 * 1024**3 else (512 if free_bytes >= 2 * 1024**3 else 256)
     # Ora attention uses more working memory than the upstream parameter-count estimate.
     if free_bytes >= 6 * 1024**3:
         return 512

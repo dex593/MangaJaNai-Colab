@@ -6,7 +6,7 @@ Ngày chạy gần nhất: 2026-10-20. Không dùng kết quả giả lập làm
 
 - Windows: Python 3.12.6, NumPy 2.1.2, OpenCV 4.12.0, Pillow 10.4.0, Rich 13.9.2, libvips 8.16.1.
 - Linux/WSL: Python 3.12.3, môi trường riêng cài từ `pyproject.toml` + pyvips 3.0.0/pyvips-binary 8.16.1.
-- `python -m pytest -q`: **196 passed** trên Linux; **194 passed, 2 skipped** trên Windows. Hai bài kiểm tra gửi tín hiệu dừng cho cả nhóm tiến trình chỉ chạy trên Linux (môi trường Colab).
+- `python -m pytest -q`: **218 passed** trên Linux; **216 passed, 2 skipped** trên Windows. Hai bài kiểm tra gửi tín hiệu dừng cho cả nhóm tiến trình chỉ chạy trên Linux (môi trường Colab). Test descriptor GFISRV2 cần Torch/Spandrel; môi trường test tối thiểu không cài backend sẽ skip riêng bài này.
 - `ruff check manga_colab tests scripts`: pass.
 - `bash -n scripts/setup_colab.sh scripts/check_environment.sh`: pass trên Linux.
 - Notebook: sáu code cells parse được bằng Python AST, không có secrets/token, không có inference engine trong notebook.
@@ -98,11 +98,21 @@ python scripts/smoke_test.py --model manga-ora --scale 1.5
 - Các phép forward riêng FP32 đã chạy tile 128/256/320/384/512. Tile 512 đạt peak tensor khoảng 2629 MiB trên máy này. Các ngưỡng tile là khởi đầu thận trọng, vẫn có OOM fallback.
 - Chạy BF16 có autocast trên GTX 1050 Ti thành công với tile 128, nhưng đây là đường mô phỏng và không được dùng để khẳng định hiệu suất BF16 trên T4/L4/A100. Chính sách mới không chọn đường mô phỏng cho Ora.
 
+## MangaScale GFISRV2, phiên bản 0.3.0
+
+- Liệt kê folder Drive thật, xác định đúng bản `.safetensors`, tải thật và tính SHA-256. Tải lại vào cache riêng qua `ModelManager`; hash và size khớp. Không tải bản ONNX, không thêm model vào Git.
+- Giữ nguyên source GFISRV2 từ resselt; unit test kiểm tra hash source, descriptor cho kết quả bằng forward gốc sau clamp, từ chối metadata biến thể khác và weights thiếu key. Không coi trọng số ngẫu nhiên của unit test là bằng chứng chất lượng AI.
+- Model thật có **4.208.736 parameters**, 3 kênh vào/ra, scale 4. Trên GTX 1050 Ti, forward FP32 và FP16 + autocast cho input 31×47, 64×80, 512×512 đều đúng kích thước 4x và hữu hạn. Với 512×512, peak tensor GPU lần lượt khoảng **755 MiB / 564 MiB**; đây không phải VRAM tổng của tiến trình.
+- Pipeline upstream chạy ảnh màu và grayscale thật ở target **4x** và **2x**, output được decode/hash; 2x dùng final downscale gốc. `doctor --check-models` kiểm tra thêm load qua registry Spandrel.
+- Hai trang tự tạo **800×1200 → 1600×2400**, FP32, auto tile, staging, cùng GTX 1050 Ti và allocator giới hạn 2 GiB: **26.56 giây, 0 OOM/retry, peak tensor 522.82 MiB**. Ora trong lượt đo 0.2.1 ở trên mất 50.15 giây với cùng hai input và target; đây là một mẫu nhỏ trên GPU khác T4, có khác biệt staging và output, không phải đánh giá chất lượng hay cam kết mức tăng tốc Colab.
+- Chạy lại hai trang: **2 skipped**, nội dung và mtime output giữ nguyên. Linux **PyTorch 2.11.0+cpu** load weights thật và chạy input 17×23 → 68×92 hữu hạn.
+- Chưa chạy GFISRV2 trên T4/L4/A100, chưa kiểm chứng batch dài hoặc so sánh chất lượng manga thật. Không dùng số FPS trong bài giới thiệu tác giả làm kết quả đo của project.
+
 ## Chưa xác minh
 
 - Chưa mở phiên Colab GPU thực, chưa mount Google Drive thật, chưa chạy T4/L4/A100 hoặc FP16/BF16 trên các GPU đó.
 - Chưa chạy batch hàng nghìn trang manga, ngắt mount thật hoặc quota Drive đầy thật. OOM GPU thật đã được thử bằng giới hạn allocator như mô tả ở trên.
-- Với 16 model MangaJaNai/IllustrationJaNai, đã kiểm chứng archive/hash cho cả 16 và inference bốn model nêu trên. Hai model bổ sung Eula/Ora đã chạy inference thật; chưa chạy inference 12 model còn lại của MangaJaNai/IllustrationJaNai.
+- Với 16 model MangaJaNai/IllustrationJaNai, đã kiểm chứng archive/hash cho cả 16 và inference bốn model nêu trên. Eula/Ora/GFISRV2 đã chạy inference thật; chưa chạy inference 12 model còn lại của MangaJaNai/IllustrationJaNai.
 - Không cam kết cùng pixel giữa các tile size/precision khác nhau.
 - Default Colab Python 3.13 không tương thích `chainner_ext 0.3.10`; chọn runtime **2026.07 / Python 3.12**. Đây là giới hạn đã kiểm tra qua PyPI wheels và source bindings, không phải lỗi được che bằng một upscaler khác.
 

@@ -106,6 +106,9 @@ class Backend:
                 finally:
                     sys.argv = previous
             self.module.spandrel_custom.install(ignore_duplicates=True)
+            from .extra_arches import install
+
+            install()
             self.options = self.module.SettingsParser(
                 {
                     "use_cpu": False,

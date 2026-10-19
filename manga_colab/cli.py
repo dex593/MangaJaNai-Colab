@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .config import Config, ROOT, load_yaml
 from .display import make_console, model_label
+from .model_selector import EXTRA_MODELS
 
 
 def add_config(parser: argparse.ArgumentParser) -> None:
@@ -23,7 +24,7 @@ def add_config(parser: argparse.ArgumentParser) -> None:
     for name, kind, description in (
         ("scale", float, "Target scale từ 1 đến 4"),
         ("threshold", float, "Grayscale threshold, mặc định 12"),
-        ("tile", int, "0=upstream auto estimate; hoặc px >=32"),
+        ("tile", int, "0=tự chọn theo model; hoặc kích thước phần ảnh >=32 px"),
         ("cuda-device", int, "CUDA index, mặc định 0; KHÔNG phải GUI backend index"),
         ("quality", int, "JPEG/WebP/AVIF quality 1–100"),
     ):
@@ -31,8 +32,8 @@ def add_config(parser: argparse.ArgumentParser) -> None:
     for name, choices, description in (
         (
             "model",
-            ["auto", "eula-digimanga", "manga-ora"],
-            "Chọn MangaJaNai tự động, Eula 4x hoặc Manga Ora 2x",
+            ["auto", *EXTRA_MODELS],
+            "Chọn MangaJaNai tự động, Eula, Manga Ora hoặc MangaScale GFISRV2",
         ),
         ("format", ["png", "jpeg", "webp", "avif"], "Định dạng output"),
         ("detector", ["upstream", "corrected"], "Giữ upstream hoặc sửa pure B/W + uint8 overflow"),
@@ -63,7 +64,7 @@ def from_args(args: argparse.Namespace) -> Config:
     values = load_yaml(args.config) if args.config else {}
     values.update({k: v for k, v in vars(args).items() if k in Config.__dataclass_fields__})
     if args.auto_model and values.get("model", "auto") != "auto":
-        raise ValueError("Không dùng --auto-model cùng chế độ Eula hoặc Manga Ora")
+        raise ValueError("Không dùng --auto-model cùng lựa chọn model riêng")
     if "input" not in values:
         raise ValueError("Cần --input hoặc input trong YAML")
     if "output" not in values:

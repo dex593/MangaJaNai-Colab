@@ -137,6 +137,7 @@ def test_every_form_field_has_help_and_internal_names_are_hidden():
         ("MangaJaNai (tự chọn)", "auto", "Output"),
         ("Eula Digimanga BW V2 NC1", "eula-digimanga", "Eula Digimanga"),
         ("2x Manga Ora", "manga-ora", "Manga Ora"),
+        ("MangaScale GFISRV2 4x", "mangascale-gfisrv2", "MangaScale GFISRV2"),
     ],
 )
 def test_model_choice_reaches_cli_and_uses_separate_output(monkeypatch, choice, model, folder):
