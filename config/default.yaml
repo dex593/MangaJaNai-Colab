@@ -1,0 +1,14 @@
+# CLI flags override these values. Paths must be supplied by the user.
+scale: 2
+format: png
+threshold: 12
+detector: upstream
+resume: true
+overwrite: false
+retry_failed: false
+tile: 0
+cuda_device: 0
+precision: auto
+quality: 95
+lossless: true
+log_level: normal

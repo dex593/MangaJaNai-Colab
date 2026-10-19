@@ -1,0 +1,17 @@
+name: tests
+on: [push, pull_request]
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -e '.[test]' pyvips==3.0.0 pyvips-binary==8.16.1
+      - run: python -m pytest -q
+      - run: python -m ruff check manga_colab tests scripts
+      - run: bash -n scripts/setup_colab.sh scripts/check_environment.sh

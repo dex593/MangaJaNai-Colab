@@ -1,0 +1,152 @@
+{
+  "archives": {
+    "MangaJaNai_V1_ModelsOnly.zip": {
+      "id": 168883373,
+      "name": "MangaJaNai_V1_ModelsOnly.zip",
+      "size": 433383160,
+      "digest": null,
+      "browser_download_url": "https://github.com/the-database/MangaJaNai/releases/download/1.0.0/MangaJaNai_V1_ModelsOnly.zip",
+      "tag": "1.0.0",
+      "verified_sha256": "5156f4167875bba51a8ed52bd1c794b0d7277f7103f99b397518066e4dda7e55"
+    },
+    "IllustrationJaNai_V3denoise.zip": {
+      "id": 339527190,
+      "name": "IllustrationJaNai_V3denoise.zip",
+      "size": 166680846,
+      "digest": "sha256:6c26828ad8e142c9e9c7181451257f3f56a0f5c7f897d9c7878ce898404f53e5",
+      "browser_download_url": "https://github.com/the-database/MangaJaNai/releases/download/3.0.0/IllustrationJaNai_V3denoise.zip",
+      "tag": "3.0.0",
+      "verified_sha256": "6c26828ad8e142c9e9c7181451257f3f56a0f5c7f897d9c7878ce898404f53e5"
+    }
+  },
+  "models": {
+    "2x_MangaJaNai_1200p_V1_ESRGAN_70k.pth": {
+      "archive": "MangaJaNai_V1_ModelsOnly.zip",
+      "member": "2x_MangaJaNai_1200p_V1_ESRGAN_70k.pth",
+      "size": 33709234,
+      "compressed_size": 30956969,
+      "crc32": 3146866016,
+      "sha256": "43b784f674bdbf89886a62a64cd5f8d8df92caf4d861bdf4d47dad249ede0267"
+    },
+    "2x_MangaJaNai_1300p_V1_ESRGAN_75k.pth": {
+      "archive": "MangaJaNai_V1_ModelsOnly.zip",
+      "member": "2x_MangaJaNai_1300p_V1_ESRGAN_75k.pth",
+      "size": 33708528,
+      "compressed_size": 30957423,
+      "crc32": 786029693,
+      "sha256": "15ca3c0f75f97f7bf52065bf7c9b8d602de94ce9e3b078ac58793855eed18589"
+    },
+    "2x_MangaJaNai_1400p_V1_ESRGAN_70k.pth": {
+      "archive": "MangaJaNai_V1_ModelsOnly.zip",
+      "member": "2x_MangaJaNai_1400p_V1_ESRGAN_70k.pth",
+      "size": 33708528,
+      "compressed_size": 30957076,
+      "crc32": 1038023021,
+      "sha256": "a940ad8ebcf6bea5580f2f59df67deb009f054c9b87dbbc58c2e452722f34858"
+    },
+    "2x_MangaJaNai_1500p_V1_ESRGAN_90k.pth": {
+      "archive": "MangaJaNai_V1_ModelsOnly.zip",
+      "member": "2x_MangaJaNai_1500p_V1_ESRGAN_90k.pth",
+      "size": 33708528,
+      "compressed_size": 30955701,
+      "crc32": 4233627023,
+      "sha256": "d91f2d247fa61144c1634a2ba46926acd3956ae90d281a5bed6655f8364a5b2c"
+    },
+    "2x_MangaJaNai_1600p_V1_ESRGAN_90k.pth": {
+      "archive": "MangaJaNai_V1_ModelsOnly.zip",
+      "member": "2x_MangaJaNai_1600p_V1_ESRGAN_90k.pth",
+      "size": 33708528,
+      "compressed_size": 30956899,
+      "crc32": 1817108060,
+      "sha256": "6f5923f812dbc5d6aeed727635a21e74cacddce595afe6135cbd95078f6eee44"
+    },
+    "2x_MangaJaNai_1920p_V1_ESRGAN_70k.pth": {
+      "archive": "MangaJaNai_V1_ModelsOnly.zip",
+      "member": "2x_MangaJaNai_1920p_V1_ESRGAN_70k.pth",
+      "size": 33708528,
+      "compressed_size": 30959957,
+      "crc32": 3560449224,
+      "sha256": "1ad4aa6f64684baa430da1bb472489bff2a02473b14859015884a3852339c005"
+    },
+    "2x_MangaJaNai_2048p_V1_ESRGAN_95k.pth": {
+      "archive": "MangaJaNai_V1_ModelsOnly.zip",
+      "member": "2x_MangaJaNai_2048p_V1_ESRGAN_95k.pth",
+      "size": 33708528,
+      "compressed_size": 30961454,
+      "crc32": 528402153,
+      "sha256": "146cd009b9589203a8444fe0aa7195709bb5b9fdeaca3808b7fbbd5538f94c41"
+    },
+    "4x_MangaJaNai_1200p_V1_ESRGAN_70k.pth": {
+      "archive": "MangaJaNai_V1_ModelsOnly.zip",
+      "member": "4x_MangaJaNai_1200p_V1_ESRGAN_70k.pth",
+      "size": 33630576,
+      "compressed_size": 30941734,
+      "crc32": 342511676,
+      "sha256": "6e3a8d21533b731eb3d8eaac1a09cf56290fa08faf8473cbe3debded9ab1ebe1"
+    },
+    "4x_MangaJaNai_1300p_V1_ESRGAN_75k.pth": {
+      "archive": "MangaJaNai_V1_ModelsOnly.zip",
+      "member": "4x_MangaJaNai_1300p_V1_ESRGAN_75k.pth",
+      "size": 33698866,
+      "compressed_size": 30956734,
+      "crc32": 346501967,
+      "sha256": "eacf8210543446f3573d4ea1625f6fc11a3b2a5e18b38978873944be146417a8"
+    },
+    "4x_MangaJaNai_1400p_V1_ESRGAN_105k.pth": {
+      "archive": "MangaJaNai_V1_ModelsOnly.zip",
+      "member": "4x_MangaJaNai_1400p_V1_ESRGAN_105k.pth",
+      "size": 33698866,
+      "compressed_size": 30954912,
+      "crc32": 2825877731,
+      "sha256": "d77f977a6c6c4bf855dae55f0e9fad6ac2823fa8b2ef883b50e525369fde6a74"
+    },
+    "4x_MangaJaNai_1500p_V1_ESRGAN_105k.pth": {
+      "archive": "MangaJaNai_V1_ModelsOnly.zip",
+      "member": "4x_MangaJaNai_1500p_V1_ESRGAN_105k.pth",
+      "size": 33698866,
+      "compressed_size": 30955454,
+      "crc32": 3955177898,
+      "sha256": "5e5174b60316e9abb7875e6d2db208fec4ffc34f3d09fa7f0e0f6476f9d31687"
+    },
+    "4x_MangaJaNai_1600p_V1_ESRGAN_70k.pth": {
+      "archive": "MangaJaNai_V1_ModelsOnly.zip",
+      "member": "4x_MangaJaNai_1600p_V1_ESRGAN_70k.pth",
+      "size": 33698160,
+      "compressed_size": 30955251,
+      "crc32": 2767016899,
+      "sha256": "c126ec8d4b7434d8f6a43d24bec1f56d343104ab8a86b5e01d5d25be6b5244c0"
+    },
+    "4x_MangaJaNai_1920p_V1_ESRGAN_105k.pth": {
+      "archive": "MangaJaNai_V1_ModelsOnly.zip",
+      "member": "4x_MangaJaNai_1920p_V1_ESRGAN_105k.pth",
+      "size": 33698866,
+      "compressed_size": 30955676,
+      "crc32": 2020242705,
+      "sha256": "d469e96e590a25a86037760b26d51405c77759a55b0966b15dc76b609f72f20b"
+    },
+    "4x_MangaJaNai_2048p_V1_ESRGAN_70k.pth": {
+      "archive": "MangaJaNai_V1_ModelsOnly.zip",
+      "member": "4x_MangaJaNai_2048p_V1_ESRGAN_70k.pth",
+      "size": 33698160,
+      "compressed_size": 30955288,
+      "crc32": 4241957322,
+      "sha256": "f70e08c60da372b7207e7348486ea6b498ea8dea6246bb717530a4d45c955b9b"
+    },
+    "2x_IllustrationJaNai_V3denoise_FDAT_M_unshuffle_30k_fp16.safetensors": {
+      "archive": "IllustrationJaNai_V3denoise.zip",
+      "member": "2x_IllustrationJaNai_V3denoise_FDAT_M_unshuffle_30k_fp16.safetensors",
+      "size": 16198963,
+      "compressed_size": 15052175,
+      "crc32": 2742011066,
+      "sha256": "960c9555f62fb19113e8d808bde5a54b64181b1db417bca1bbda26516e48f108"
+    },
+    "4x_IllustrationJaNai_V3denoise_FDAT_M_47k_fp16.safetensors": {
+      "archive": "IllustrationJaNai_V3denoise.zip",
+      "member": "4x_IllustrationJaNai_V3denoise_FDAT_M_47k_fp16.safetensors",
+      "size": 16160075,
+      "compressed_size": 15002565,
+      "crc32": 2464099281,
+      "sha256": "a15dfc813b1f1138ca3da06c6cbf530dd1acbff0ba0d4eb97b5c021f3facbf6c"
+    }
+  }
+}

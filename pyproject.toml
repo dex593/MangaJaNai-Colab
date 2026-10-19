@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mangajanai-colab"
+version = "0.1.0"
+description = "Resumable Google Colab launcher and batch runner for the original MangaJaNai backend"
+requires-python = ">=3.11,<3.13"
+license = "GPL-3.0-only"
+dependencies = [
+  "numpy>=2,<3", "opencv-python-headless>=4.11,<5", "Pillow>=10.4,<13",
+  "rich>=13.9,<15", "requests>=2.32,<3", "PyYAML>=6,<7", "filelock>=3.16,<4",
+]
+
+[project.optional-dependencies]
+backend = [
+  "chainner_ext==0.3.10", "pyvips==3.0.0", "pyvips-binary==8.16.1",
+  "rarfile==4.2", "sanic==24.6.0", "spandrel==0.4.1",
+  "spandrel_extra_arches==0.2.0", "pynvml==11.5.3",
+]
+test = ["pytest>=8,<9", "ruff>=0.6"]
+
+[project.scripts]
+manga-colab = "manga_colab.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["manga_colab*"]
+
+[tool.setuptools.package-data]
+manga_colab = ["data/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: requires the installed upstream backend", "gpu: requires real CUDA and official model weights"]
+
+[tool.ruff]
+line-length = 100
+extend-exclude = ["manga_colab/upstream_logic.py"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]

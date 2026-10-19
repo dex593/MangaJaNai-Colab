@@ -1,0 +1,59 @@
+# Kết quả xác minh
+
+Ngày chạy: 2026-10-19. Không dùng kết quả giả lập làm bằng chứng AI inference.
+
+## Unit/integration ở cấp điều phối
+
+- Windows: Python 3.12.6, NumPy 2.1.2, OpenCV 4.12.0, Pillow 10.4.0, Rich 13.9.2, libvips 8.16.1.
+- Linux/WSL: Python 3.12.3, môi trường riêng cài từ `pyproject.toml` + pyvips 3.0.0/pyvips-binary 8.16.1.
+- `python -m pytest -q`: **111 passed** trên cả hai hệ điều hành.
+- `ruff check manga_colab tests scripts`: pass.
+- `bash -n scripts/setup_colab.sh scripts/check_environment.sh`: pass trên Linux.
+- Notebook: sáu code cells parse được bằng Python AST, không có secrets/token, không có inference engine trong notebook.
+
+Phạm vi test: grayscale/color, pure B/W/uint8 overflow, threshold, mọi ranh giới height, scale 2/4 và chain priority, missing model, HTTP Range retries/truncated responses, invalid cache checksum, failed download không publish, manifest truncated tail, prepared recovery, source/config/model/workflow thay đổi, output corrupt, Unicode, duplicate filenames, recursive/excluded folders, multi-GPU index mapping, settings JSON, staging, dry-run, retry-failed, Ctrl+C và OOM control flow.
+
+`tests/test_pipeline.py` dùng test double ghi ảnh để cô lập logic checkpoint/file handling. `tests/test_oom.py` mô phỏng tín hiệu OOM, không làm cạn VRAM thật. Các test này không chứng minh chất lượng model.
+
+## Smoke test inference thật
+
+Thiết bị: **NVIDIA GeForce GTX 1050 Ti 4 GB**, compute 6.1, Windows, PyTorch **2.5.1+cu121**, torchvision 0.20.1+cu121, CUDA 12.1, **FP32**. Backend pin `e63e7843ba45e2a2d9fd9007e3ea33aec9b9e222`; Spandrel 0.4.1 + upstream FDAT.
+
+Ảnh input hợp lệ được vẽ cục bộ để không đưa manga có bản quyền vào repository. Một ảnh grayscale 64×80 có chữ và pattern chấm; một ảnh RGB 64×64. Model tải thật qua GitHub Range downloader, kiểm tra SHA-256. Đây là smoke test nhỏ, không phải benchmark throughput trang manga thật.
+
+| Thử nghiệm | Model chạy thật | Output đã đọc và hash | Kết quả |
+|---|---|---|---|
+| Target 2x grayscale, tile 64 | `2x_MangaJaNai_1200p_V1_ESRGAN_70k.pth` | 128×160 PNG | PASS |
+| Target 2x color, tile 64 | `2x_IllustrationJaNai_V3denoise_FDAT_M_unshuffle_30k_fp16.safetensors` | 128×128 PNG | PASS |
+| Target 1.5x grayscale, auto tile + staging | cùng model 2x, ICC final downscale gốc | 96×120 PNG | PASS |
+| Target 1.5x color, auto tile + staging | cùng model 2x, Lanczos final downscale gốc | 96×96 PNG | PASS |
+| Target 3x grayscale, tile 64 | `4x_MangaJaNai_1200p_V1_ESRGAN_70k.pth`, ICC downscale | 192×240 PNG | PASS |
+| Target 3x color, tile 64 | `4x_IllustrationJaNai_V3denoise_FDAT_M_47k_fp16.safetensors`, Lanczos downscale | 192×192 PNG | PASS |
+| Chạy lại batch 2x cùng cấu hình | Kiểm tra output + manifest | 2 skipped, không chạy inference lại | PASS |
+
+`doctor --check-models` đã xác minh load các model 2x thực bằng Spandrel. Hai official archives đã được tải đầy đủ khi tạo catalog, kiểm tra ZIP CRC, size và digest nếu upstream cung cấp. Runtime selective download đã chạy thật cho bốn model trên; không tải model không cần thiết.
+
+## Tương thích PyTorch mới trên Linux
+
+Đã cài **PyTorch 2.11.0+cpu / torchvision 0.26.0+cpu** trong môi trường Linux Python 3.12.3 riêng. Spandrel 0.4.1 và custom FDAT của upstream load hai model 2x chính thức thành công; chạy tensor 16×16 qua từng model cho output 32×32 hữu hạn. `chainner_ext 0.3.10` chạy CubicCatrom resize 32×32 → 24×24 thành công. Đây là kiểm tra API/native trên Linux với PyTorch cùng phiên bản runtime Colab 2026.07, **không phải kiểm thử CUDA/Drive trên Colab**.
+
+## Chưa xác minh
+
+- Chưa mở phiên Colab GPU thực, chưa mount Google Drive thật, chưa chạy T4/L4/A100 hoặc FP16/BF16 trên các GPU đó.
+- Chưa chạy batch hàng nghìn trang manga, chưa cưỡng bức OOM thật, ngắt mount thật hoặc quota Drive đầy thật.
+- Chưa chạy inference tất cả 16 model; đã kiểm chứng archive/hash cho cả 16 và inference bốn model nêu trên.
+- Không cam kết cùng pixel giữa các tile size/precision khác nhau.
+- Default Colab Python 3.13 không tương thích `chainner_ext 0.3.10`; chọn runtime **2026.07 / Python 3.12**. Đây là giới hạn đã kiểm tra qua PyPI wheels và source bindings, không phải lỗi được che bằng một upscaler khác.
+
+## Tái lập
+
+```bash
+python -m pytest -q
+python scripts/smoke_test.py --scale 2
+python scripts/smoke_test.py --scale 3
+python -m manga_colab run --input .runtime/smoke/input \
+  --output .runtime/smoke/downscale --models .runtime/smoke/models \
+  --scale 1.5 --stage .runtime/stage
+```
+
+Weights, ảnh, backend logs và report có đường dẫn máy local đều nằm trong thư mục ignored `.runtime/`, không xuất bản lên GitHub.

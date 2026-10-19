@@ -1,0 +1,171 @@
+# MangaJaNai-Colab
+
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/dex593/MangaJaNai-Colab/blob/main/colab/Run_MangaJaNai.ipynb)
+[![Tests](https://github.com/dex593/MangaJaNai-Colab/actions/workflows/tests.yml/badge.svg)](https://github.com/dex593/MangaJaNai-Colab/actions/workflows/tests.yml)
+
+Upscale thư mục manga trên Google Drive bằng **model thật và backend gốc MangaJaNaiConverterGui**. Tự phân loại nội dung từng ảnh, chọn model theo chiều cao và scale, tải đúng weights cần thiết, ghi output an toàn và tiếp tục sau khi Colab ngắt phiên.
+
+Repository public; notebook không dùng Colab Secrets, token hay đăng nhập GitHub.
+
+**Môi trường hỗ trợ: Python 3.11–3.12.** `chainner_ext==0.3.10` của backend gốc chưa có wheel/binding hỗ trợ Python 3.13. Colab hiện có runtime 2026.07 dùng Python 3.12; hãy chọn runtime này. Script không âm thầm hạ Python hay thay PyTorch/CUDA. Khi Colab bỏ runtime này, cần kiểm chứng nâng native backend trước khi chuyển runtime mới.
+
+```mermaid
+flowchart LR
+    G[GitHub: code, workflow, catalog] -->|clone / pull| C[Colab launcher]
+    C --> P[Python CLI]
+    D[Drive: input] --> P
+    R[Official GitHub Releases] -->|selected ZIP members| M[Drive: model cache]
+    M --> P
+    P --> U[Upstream: preprocessing → PyTorch → ICC downscale]
+    U --> O[Drive: output + manifest + reports]
+```
+
+## Bắt đầu trên Colab
+
+1. Nhấn **Open in Colab**, chọn **Runtime → Change runtime type → GPU**, **Runtime Version: 2026.07 (Python 3.12)**. T4, L4 hoặc A100 đều được nếu Colab cấp GPU tương thích với PyTorch của runtime.
+2. Tạo thư mục `MyDrive/Manga/Input`, chép ảnh vào đó. Thư mục con được giữ nguyên.
+3. Cell 1: đặt input/output/cache, scale và định dạng. Mặc định 2x, PNG, resume bật, overwrite tắt.
+4. Cell 2: mount Drive và kiểm tra quyền truy cập.
+5. Cell 3: clone hoặc `git pull --ff-only` từ repo public. Có thể chọn branch hoặc pin SHA 40 ký tự.
+6. Cell 4: chạy `scripts/setup_colab.sh`; script giữ nguyên bộ PyTorch/torchvision/CUDA của Colab, cài dependency vào môi trường overlay.
+7. Cell 5: chạy CLI, xem model, tile thực tế, tiến độ, tốc độ và ETA.
+8. Cell 6: xem thống kê. Ảnh nằm trong `OUTPUT_DIR`; JSON, CSV, manifest và log nằm ở `OUTPUT_DIR/.manga-colab/`.
+
+Khi logic thay đổi, sửa source trên GitHub rồi chạy lại cell 3–6. Không cần sửa processing code trong notebook.
+
+```python
+INPUT_DIR = "/content/drive/MyDrive/Manga/Input"
+OUTPUT_DIR = "/content/drive/MyDrive/Manga/Output"
+MODEL_CACHE_DIR = "/content/drive/MyDrive/MangaJaNai/models"
+UPSCALE_FACTOR = 2
+OUTPUT_FORMAT = "png"
+```
+
+Chỉ xử lý ảnh PNG, JPG/JPEG, WebP, BMP và AVIF nếu libvips có decoder. Đọc bằng libvips, chuyển ICC sang sRGB giống upstream. Nội dung ảnh quyết định model, extension chỉ dùng để tìm file. Tên Việt/Nhật/Unicode được hỗ trợ; thứ tự tự nhiên là `page2` trước `page10`.
+
+## Auto model
+
+Workflow được trích từ **`DEFAULT_WORKFLOW` trong `MainWindowViewModel.cs`** ở commit upstream `e63e7843ba45e2a2d9fd9007e3ea33aec9b9e222` (release GUI 1.5.1). File CLI mặc định của upstream còn dùng model màu V1 cũ, nên không dùng nó làm nguồn chain.
+
+| Chiều cao ảnh nguồn grayscale | Family |
+|---|---|
+| ≤1250 | MangaJaNai 1200p V1 |
+| 1251–1350 | MangaJaNai 1300p V1 |
+| 1351–1450 | MangaJaNai 1400p V1 |
+| 1451–1550 | MangaJaNai 1500p V1 |
+| 1551–1760 | MangaJaNai 1600p V1 |
+| 1761–1984 | MangaJaNai 1920p V1 |
+| ≥1985 | MangaJaNai 2048p V1 |
+
+Ảnh màu dùng **IllustrationJaNai V3denoise FDAT** `.safetensors`. Scale ≤2 chọn chain 2x; >2 chọn 4x. Tại đúng 2x, cả min/max cùng khớp nhưng chain 2x đứng trước nên thắng. Tất cả điều kiện và thứ tự nằm trong [workflow.json](manga_colab/data/workflow.json), filename/size/SHA-256 nằm trong [models.json](manga_colab/data/models.json).
+
+Scale hỗ trợ từ **1 đến 4**, kể cả 1.5/2.5. Backend luôn chạy AI rồi dùng `final_target_resize` gốc để đạt kích thước cuối. Grayscale giữ auto levels và downscale với ICC Dot Gain 20% ↔ linear gamma; ảnh màu giữ Lanczos upstream. Không thêm sharpening, denoiser hoặc resize thay thế AI.
+
+### Detector và các hành vi upstream cần biết
+
+Mặc định `--detector upstream --threshold 12` giữ nguyên `cv_image_is_grayscale`, bao gồm:
+
+- Một kênh luôn là grayscale.
+- Trừ threshold khỏi chênh lệch các kênh và bỏ các pixel đen/trắng tuyệt đối khỏi mẫu số.
+- **RGB chỉ gồm pixel đen/trắng tuyệt đối trả về color**; một kênh cùng nội dung trả grayscale.
+- Tổng các chênh lệch `uint8` có thể tràn số và nhận sai một số màu.
+
+`--detector corrected` là tùy chọn rõ ràng để sửa hai điểm cuối bằng cộng số thực và phân loại pure B/W là grayscale. Không tự động đổi hành vi mặc định. Một số ảnh grayscale hằng số có thể khiến auto levels gốc tạo NaN; project báo lỗi thay vì ghi một output giả thành công. Có thể dùng bản sao workflow JSON với `AutoAdjustLevels: false` cho trường hợp đó.
+
+## Model downloader và cache
+
+Nguồn duy nhất:
+
+- [MangaJaNai V1 — release 1.0.0](https://github.com/the-database/MangaJaNai/releases/tag/1.0.0), asset `MangaJaNai_V1_ModelsOnly.zip`.
+- [IllustrationJaNai V3 — release 3.0.0](https://github.com/the-database/MangaJaNai/releases/tag/3.0.0), asset `IllustrationJaNai_V3denoise.zip`.
+
+Đã đọc archive thật, kiểm tra ZIP CRC và size, kiểm tra SHA-256 archive V3 được GitHub công bố, rồi ghi SHA-256 từng model vào catalog. Archive V1 không có digest trên Releases API; SHA-256 của bản đã tải được ghi rõ là checksum do project tính, không phải chữ ký của upstream.
+
+Mỗi lần cần tải, downloader lấy asset qua **GitHub Releases API**, đối chiếu id/size/digest đã pin. HTTP Range + ZIP central directory cho phép chỉ tải member cần thiết, không tải tất cả 16 weights. Model đi qua `.part`, kiểm tra size/CRC/SHA-256, `fsync`, rồi atomic rename. Cache được hash trước khi dùng; file tải dở và file cùng tên nhưng sai checksum không được chấp nhận. Không có fallback resize.
+
+Nếu API rate limit, server không hỗ trợ Range hoặc asset thay đổi, chương trình dừng và in đúng tên model, release, member ZIP và thư mục cài thủ công. Chỉ cần tải archive từ release chính thức, giải nén model được yêu cầu vào `MODEL_CACHE_DIR`, rồi chạy lại. Không cần token.
+
+`scripts/build_catalog.py` dành cho maintainer: tải toàn bộ hai archive để kiểm chứng lại catalog. Người dùng bình thường không chạy script này.
+
+## Resume, an toàn dữ liệu và staging
+
+- Manifest JSONL ghi và flush sau từng ảnh. Dòng cuối bị cắt khi mất kết nối được phục hồi; lỗi ở giữa manifest được báo rõ.
+- Resume yêu cầu source SHA-256, cấu hình, workflow/model SHA-256, output path, kích thước, đọc đủ pixel và output SHA-256 đều khớp.
+- Có trạng thái `prepared` để phục hồi nếu ngắt giữa lúc publish output và ghi `success`.
+- File mới được ghi vào tên tạm; chỉ publish sau khi decode và xác minh. Output cuối được mở lại trước khi ghi success.
+- Output tồn tại nhưng khác cấu hình, thiếu manifest hoặc bị corrupt **không bị ghi đè**. Chọn output mới hoặc bật `--overwrite`.
+- `--retry-failed` thử lại ảnh đã lỗi; mặc định giữ lỗi cũ trong report và bỏ qua. `--overwrite` cũng cho phép chạy lại.
+- Input không bị sửa. Không quét lại output/model cache/staging nằm trong input; không đi theo symlink.
+- Các input trùng stem, như `page.jpg` và `page.png`, được thêm extension và hash ngắn vào tên output. Khi thêm/bớt input làm thay đổi nhóm xung đột, hãy kiểm tra plan trước khi tiếp tục.
+- `--stage /content/manga-stage` xử lý từng ảnh trong local, kiểm tra dung lượng rồi đồng bộ output đã xác minh về Drive ngay sau ảnh đó. Không đợi hết batch mới sync.
+- `Ctrl+C` giữ các ảnh thành công, dọn file tạm của ảnh đang chạy và trả exit code 130. Hard kill có thể để lại `.manga-*` hoặc `.part`; chúng không được coi là ảnh hoàn tất.
+
+Drive là filesystem từ xa: `fsync` không đảm bảo dữ liệu đã tới máy chủ khi runtime mất điện; resume sẽ đọc/hash lại. Chỉ chạy **một runtime cho cùng output và model cache**; file lock không phải distributed lock giữa nhiều máy Colab. Dung lượng Drive hiển thị bởi filesystem có thể khác quota tài khoản; lỗi ghi dừng batch an toàn.
+
+## CLI
+
+Sau khi cài, dùng Python trong môi trường overlay:
+
+```bash
+PY=.venv-colab/bin/python
+$PY -m manga_colab run \
+  --input /content/drive/MyDrive/Manga/Input \
+  --output /content/drive/MyDrive/Manga/Output \
+  --models /content/drive/MyDrive/MangaJaNai/models \
+  --scale 2 --format png --auto-model --resume
+
+$PY -m manga_colab doctor --input /path/input --output /path/output --models /path/models --check-models
+$PY -m manga_colab scan --input /path/input --output /path/output
+$PY -m manga_colab models list --models /path/models
+$PY -m manga_colab models download --input /path/input --models /path/models --scale 2
+$PY -m manga_colab run --input /path/input --output /path/output --dry-run
+$PY -m manga_colab run --config config/default.yaml --input /path/input --output /path/output --models /path/models
+$PY -m manga_colab run --help
+```
+
+`--dry-run` và `scan` không tải model, không gọi GPU inference; có ghi `plan.json` trong output. `models list` dùng catalog local. `models download` quét ảnh để xác định weights cần tải. Mọi command đều có `--help`. Exit code: **0** hoàn tất, **2** lỗi/ảnh thất bại, **130** bị ngắt.
+
+Các thiết lập thường dùng: `--tile 0` tự ước lượng, `--tile 256` giới hạn tile; `--precision auto|fp32`; `--cuda-device 0`; `--log-level quiet|normal|verbose|debug`; `--quality 95`; `--no-lossless` cho WebP. AVIF dùng quality, không nhận cờ lossless riêng vì giữ encoder upstream. Mặc định PNG lossless.
+
+## GPU, hiệu suất và log
+
+`doctor` hiển thị GPU, CUDA/PyTorch, VRAM free/total, compute capability, FP16/BF16, libvips/codecs/ICC, upstream pin, FDAT registry, quyền truy cập và disk. `--check-models` kiểm tra hash và load các weights đã có bằng Spandrel trên CPU; chưa có weights thì không chứng minh inference.
+
+GUI index 0 là CPU, nhưng settings backend dùng danh sách accelerator bỏ CPU. Adapter ánh xạ cả hai danh sách và kiểm tra cuối cùng là đúng `cuda:N`. FP16 chỉ bật khi GPU phù hợp, Spandrel/upstream tiếp tục quyết định precision mà model hỗ trợ. Không tự đổi PyTorch hay CUDA của runtime.
+
+Tile auto dùng estimator của upstream. Khi OOM, chạy lại ảnh với tile nhỏ hơn, giữ nguyên overlap/blending và postprocessing. Tile nhỏ có thể gây khác biệt số học/context của mạng; không cam kết bit-identical giữa các kích thước tile. Model cache giữ tối đa hai descriptor, chuyển model không hoạt động sang CPU để tránh chiếm VRAM; thứ tự ảnh vẫn là natural sorting.
+
+Rich hiển thị dashboard, download bytes/s, tile đã hoàn tất, tiến độ tổng, ETA, thời gian mỗi ảnh và summary. Backend prints/debug đi vào `backend.log`, app log đi vào `application.log`. `report.json` và `report.csv` được cập nhật sau từng ảnh; summary phân biệt successful/failed/skipped/pending và liệt kê nguyên nhân lỗi. Tốc độ summary bao gồm scan/download/setup; tốc độ thanh batch tính từ vòng xử lý nên có thể khác nhau.
+
+## Khắc phục lỗi
+
+| Lỗi | Cách xử lý |
+|---|---|
+| Không có CUDA | Bật GPU, reconnect runtime, chạy lại cell 4. Không tự chuyển sang resize/CPU. |
+| CUDA OOM kể cả tile nhỏ | Chọn GPU VRAM lớn hơn hoặc giảm tile; giới hạn tối thiểu 32. |
+| Model unsupported/checksum sai | Xem tên model + release trong log, tải lại weights chính thức; chạy `doctor --check-models`. |
+| GitHub rate limit/Range lỗi | Chờ rồi chạy lại hoặc cài đúng member ZIP thủ công. |
+| Output đã tồn tại | Giữ nguyên cấu hình để resume; nếu cấu hình thay đổi, output mới hoặc `--overwrite`. |
+| Ảnh hỏng/ICC không đọc được | Xem `plan.json`/backend log; ảnh khác vẫn tiếp tục. Giữ file nguồn để sửa riêng. |
+| Drive mất mount/quota đầy | Mount lại hoặc giải phóng dung lượng, chạy `--resume --retry-failed`. |
+| `/content` thiếu dung lượng | Tắt STAGING hoặc xóa dữ liệu local không còn cần. |
+| Dependency conflict | Dùng runtime Colab mới; không cài lại torch tùy tiện. Gửi output doctor và backend.log khi báo lỗi. |
+| `git pull --ff-only` không được | Branch bị phân kỳ hoặc source local đã sửa; lưu thay đổi rồi dùng runtime sạch. Không force/reset tự động. |
+
+## Kiểm thử và giới hạn xác minh
+
+Xem [docs/VALIDATION.md](docs/VALIDATION.md) cho môi trường và kết quả thực tế. Unit tests có test doubles để kiểm tra điều phối; chúng **không được tính là inference AI**. Smoke test thật là script riêng và yêu cầu CUDA + weights chính thức:
+
+```bash
+python -m pip install -e '.[test]'
+python -m pytest -q
+python -m ruff check manga_colab tests scripts
+python scripts/smoke_test.py --scale 2
+python scripts/smoke_test.py --scale 3
+```
+
+Không có web server, Gradio, xử lý archive manga CBZ/CBR hay multi-GPU scheduler trong bản này. Chức năng chính là batch ảnh trong thư mục. Notebook không chứa engine. Metadata EXIF/ICC gốc không được copy sang output ngoài hành vi lưu ảnh của upstream.
+
+## Giấy phép và upstream
+
+Code của project là **GPL-3.0-only**, xem [LICENSE](LICENSE). Hai hàm thuần cho detector/chain được chép từ upstream và ghi provenance trong file; inference không vendor. Backend tải đúng commit đã pin; hai sửa lỗi handling được ghi ở [docs/UPSTREAM.md](docs/UPSTREAM.md). Repository model công bố [CC BY-NC 4.0](https://github.com/the-database/MangaJaNai/blob/main/LICENSE), có điều kiện ghi công và phi thương mại; kiểm tra thêm điều khoản từng release trước khi dùng. Giấy phép code không thay giấy phép weights. Không commit weights, ảnh input/output, Drive, token hoặc cache vào repo.

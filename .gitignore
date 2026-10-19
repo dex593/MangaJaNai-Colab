@@ -1,0 +1,16 @@
+.venv/
+.venv-colab/
+.upstream/
+.runtime/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+*.pth
+*.safetensors
+*.part
+.env
+*.log
+build/
+dist/
+.manga-colab/
