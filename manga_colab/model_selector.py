@@ -38,7 +38,7 @@ def load_workflow(path: Path | None = None, model: str = "auto") -> dict:
             MinScaleFactor=0,
             MaxScaleFactor=entry["scale"],
             ModelFilePath=entry["filename"],
-            AutoAdjustLevels=False,
+            AutoAdjustLevels=True,
         )
         workflow["WorkflowName"] = entry["label"]
         chains = workflow["Chains"]["$values"] = [chain]

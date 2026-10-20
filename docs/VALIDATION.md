@@ -6,7 +6,7 @@ Ngày chạy gần nhất: 2026-10-20. Không dùng kết quả giả lập làm
 
 - Windows: Python 3.12.6, NumPy 2.1.2, OpenCV 4.12.0, Pillow 10.4.0, Rich 13.9.2, libvips 8.16.1.
 - Linux/WSL: Python 3.12.3, môi trường riêng cài từ `pyproject.toml` + pyvips 3.0.0/pyvips-binary 8.16.1.
-- `python -m pytest -q`: **218 passed** trên Linux; **216 passed, 2 skipped** trên Windows. Hai bài kiểm tra gửi tín hiệu dừng cho cả nhóm tiến trình chỉ chạy trên Linux (môi trường Colab). Test descriptor GFISRV2 cần Torch/Spandrel; môi trường test tối thiểu không cài backend sẽ skip riêng bài này.
+- `python -m pytest -q`: **221 passed** trên Linux; **219 passed, 2 skipped** trên Windows (bản 0.3.1). Hai bài kiểm tra gửi tín hiệu dừng cho cả nhóm tiến trình chỉ chạy trên Linux (môi trường Colab). Test descriptor GFISRV2 cần Torch/Spandrel; môi trường test tối thiểu không cài backend sẽ skip riêng bài này.
 - `ruff check manga_colab tests scripts`: pass.
 - `bash -n scripts/setup_colab.sh scripts/check_environment.sh`: pass trên Linux.
 - Notebook: sáu code cells parse được bằng Python AST, không có secrets/token, không có inference engine trong notebook.
@@ -107,6 +107,15 @@ python scripts/smoke_test.py --model manga-ora --scale 1.5
 - Hai trang tự tạo **800×1200 → 1600×2400**, FP32, auto tile, staging, cùng GTX 1050 Ti và allocator giới hạn 2 GiB: **26.56 giây, 0 OOM/retry, peak tensor 522.82 MiB**. Ora trong lượt đo 0.2.1 ở trên mất 50.15 giây với cùng hai input và target; đây là một mẫu nhỏ trên GPU khác T4, có khác biệt staging và output, không phải đánh giá chất lượng hay cam kết mức tăng tốc Colab.
 - Chạy lại hai trang: **2 skipped**, nội dung và mtime output giữ nguyên. Linux **PyTorch 2.11.0+cpu** load weights thật và chạy input 17×23 → 68×92 hữu hạn.
 - Chưa chạy GFISRV2 trên T4/L4/A100, chưa kiểm chứng batch dài hoặc so sánh chất lượng manga thật. Không dùng số FPS trong bài giới thiệu tác giả làm kết quả đo của project.
+
+## Cân chỉnh đen/trắng, phiên bản 0.3.1
+
+- Chạy lại ảnh manga người dùng cung cấp, **900×1350 → 3600×5400**, bằng weights MangaScale GFISRV2 thật, GTX 1050 Ti 4 GiB, FP32, tile 1024. Cấu hình mới qua `Backend.process` tạo output đọc được, **0 OOM/retry**; xác minh SHA-256 ảnh gốc không đổi.
+- Một vùng giày trong ảnh gốc có mọi pixel RGB=(25,25,25). Khi tắt cân chỉnh, model tạo chấm sáng ở vùng này, có cả khi chạy trực tiếp mạng gốc với RGB và FP16. Cấu hình FP32 tile 1024 trước sửa có mức xám output trung bình **18.75/255**, tối đa **253/255**. Bật `enhance_contrast` gốc nhận black=25, white=255: vùng đó còn trung bình **0.03/255**, tối đa **2/255**. Đây là bằng chứng trên một ảnh, không khẳng định mọi trang đều được cải thiện hoặc khớp từng pixel với ảnh mẫu.
+- Eula và Ora chạy weights thật với ảnh thử grayscale **64×80**, tạo output lần lượt **256×320** và **128×160**. Theo dõi lời gọi xác nhận hàm cân chỉnh thực sự chạy trước AI, output preprocessing hữu hạn trong [0,1].
+- Chạy thêm ảnh màu **64×80** qua MangaScale và Ora: xác nhận hàm cân chỉnh không được gọi, output đúng kích thước và đọc được. Cả năm lượt inference đều dùng FP32 và không OOM/retry; chưa thử bản cập nhật trên T4.
+- Test hồi quy cho cả ba model: kết quả của workflow cũ không được resume nhầm sau thay đổi, không bị ghi đè khi chưa bật overwrite, chạy lại được với overwrite và tiếp tục resume được với cấu hình mới. Test xác minh cờ cân chỉnh đi vào settings JSON; workflow MangaJaNai gốc giữ nguyên.
+- Vẫn giữ cách upstream báo lỗi NaN trên một số ảnh một màu. Không sửa thuật toán cân chỉnh hoặc tự thay model để che lỗi.
 
 ## Chưa xác minh
 

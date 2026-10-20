@@ -80,7 +80,11 @@ Chỉ xử lý ảnh PNG, JPG/JPEG, WebP, BMP và AVIF nếu libvips có decoder
 
 Chọn bộ AI ở Bước 1 rồi chạy Bước 1 để áp dụng. Kết quả MangaJaNai giữ nguyên nơi lưu bạn đã chọn. Eula lưu ở thư mục con **Eula Digimanga**, Ora lưu ở **Manga Ora**, MangaScale lưu ở **MangaScale GFISRV2**. Mỗi nơi có tiến độ riêng, nên bạn có thể thử các bộ AI trên cùng bộ ảnh. Thư mục kết quả cũ có `.manga-colab` được loại khỏi lần quét sau nếu nằm trong thư mục ảnh gốc. CLI dùng chính đường dẫn `--output` được truyền vào; người dùng CLI chọn thư mục riêng theo ví dụ bên dưới.
 
-Eula, Ora và MangaScale dùng đúng model đã chọn cho mọi kích thước trang, không dùng các mốc chiều cao của MangaJaNai và không bật auto levels. Kích thước cuối nhỏ hơn hệ số model được xử lý bằng `final_target_resize` gốc, gồm ICC downscaling cho ảnh đen trắng. Ora không nhận yêu cầu trên 2x để tránh phải thay model hoặc Upscale lặp mà bạn không chọn.
+Eula, Ora và MangaScale dùng đúng model đã chọn cho mọi kích thước trang, không dùng các mốc chiều cao của MangaJaNai. Từ bản **0.3.1**, cả ba đều **tự cân chỉnh đen/trắng trước AI đối với ảnh được nhận diện là đen trắng**, bằng chức năng có sẵn của backend (`AutoAdjustLevels`). Bước này giúp những mảng xám gần đen trở về đen trước khi model xử lý, giảm trường hợp model tái tạo chúng thành chấm screentone. Các model MangaJaNai đen trắng đã bật sẵn từ trước. Ảnh màu giữ cách xử lý hiện có. Cân chỉnh có thể làm mất sắc xám tối có chủ ý, nên cần xem thử một vài trang trước khi chạy cả bộ.
+
+**Cập nhật từ bản cũ:** chạy Bước 3 và 4 để lấy code mới. Muốn tạo lại ảnh đã làm, chọn **Upscale lại tất cả ảnh** ở Bước 1, chạy lại Bước 1 rồi chạy Bước 5–6. Kết quả cũ sẽ được thay thế; chọn thư mục **Lưu** khác nếu muốn giữ để so sánh. Chương trình nhận biết cấu hình cân chỉnh đã thay đổi và không bỏ qua nhầm ảnh cũ; khi chưa cho phép ghi đè, chương trình giữ ảnh cũ và báo cần làm lại. Ảnh tạo bằng cấu hình mới vẫn tiếp tục bình thường khi chọn **Chỉ Upscale ảnh chưa làm**.
+
+Kích thước cuối nhỏ hơn hệ số model được xử lý bằng `final_target_resize` gốc, gồm ICC downscaling cho ảnh đen trắng. Ora không nhận yêu cầu trên 2x để tránh phải thay model hoặc Upscale lặp mà bạn không chọn.
 
 **Model 4x có dùng để tạo ảnh 2x được không?** Có. Chọn Eula rồi đặt ô **Upscale = 2**: chương trình chạy AI 4x trước, sau đó giảm về kích thước 2x. Ví dụ ảnh 1000 × 1500 đi qua 4000 × 6000 rồi cho kết quả 2000 × 3000. Cách này đã được thử với Eula trên GPU thật; vẫn phải xử lý ảnh ở 4x và không đảm bảo đẹp hơn model 2x chuyên dụng.
 

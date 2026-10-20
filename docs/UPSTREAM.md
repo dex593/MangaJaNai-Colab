@@ -50,7 +50,7 @@ V1 archive SHA-256 do project tính (upstream API digest=null): `5156f4167875bba
 
 `extra_models.json` lưu Eula Digimanga BW V2 NC1 (ESRGAN 4x, 1→1 kênh) và Manga Ora (DAT 2x, 3→3 kênh), theo metadata OpenModelDB commit `782aac088bd83dd3fc438a42eb0c3868dc559110`. Eula tải từ URL trong metadata; link Google Drive cho Ora do người dùng cung cấp, đã tải và khớp SHA-256 công bố. Link Proton Drive gốc vẫn được ghi để truy nguồn. Không thay đổi weights hoặc nâng Spandrel để chạy hai model.
 
-Mỗi chế độ bổ sung tạo một chain duy nhất, không giới hạn chiều cao, không auto levels hay resize trước AI. Eula chỉ khớp ảnh đen trắng; Ora khớp cả grayscale và RGB. Giới hạn target không vượt native scale. Cùng backend thực hiện đổi số kênh phù hợp, chia tile, GPU inference và final resize/ICC. Đây là lựa chọn riêng do người dùng bật, không thay thế ngầm model trong workflow MangaJaNai.
+Mỗi chế độ bổ sung tạo một chain duy nhất, không giới hạn chiều cao và không resize trước AI. Ở bản 0.2.0–0.3.0, auto levels tắt; từ 0.3.1 bật như ghi bên dưới. Eula chỉ khớp ảnh đen trắng; Ora khớp cả grayscale và RGB. Giới hạn target không vượt native scale. Cùng backend thực hiện đổi số kênh phù hợp, chia tile, GPU inference và final resize/ICC. Đây là lựa chọn riêng do người dùng bật, không thay thế ngầm model trong workflow MangaJaNai.
 
 Từ 0.2.1, Ora dùng `use_fp16=False` khi GPU không có BF16 phần cứng. Spandrel 0.4.1 khai báo DAT `supports_half=False`, trong khi kiểm tra `torch.cuda.is_bf16_supported()` của upstream có thể chấp nhận BF16 mô phỏng. Adapter dựa trên capability GPU để tránh đường này trên T4; không ép FP16 không được model hỗ trợ. Auto tile Ora dùng ngưỡng VRAM trống 512/320/128 px thay estimator dựa trên dung lượng weights của upstream, cộng phần cache PyTorch chưa có tensor sử dụng. Sau OOM, giới hạn tile được lưu theo đường dẫn model trong phiên Backend để ảnh sau không thử lại mức đã thất bại. Kết quả đã hoàn tất vẫn được giữ khi resume; có thể chọn làm lại tất cả nếu muốn tạo lại với chính sách mới.
 
@@ -61,6 +61,12 @@ File xác minh trong thư mục Drive người dùng cung cấp: `4x_wtp_MangaSc
 Spandrel 0.4.1 chưa có GFISRV2. Project giữ nguyên `resselt/archs/gfisrv2/arch.py` từ [resselt commit 4a0c2c163f0ba98b7c548221590bec27fe80a861](https://github.com/rewaifu/resselt/tree/4a0c2c163f0ba98b7c548221590bec27fe80a861), kèm giấy phép MIT. SHA-256 source: `441368e7ebab3b40ca31ac66200c2deb7aad7ae366b07408853b2f27fe78f8a6`. Module `extra_arches.py` đăng ký descriptor Spandrel cho đúng bản 4x RGB mặc định, xác minh metadata và load state dict strict. Không cài toàn bộ resselt vì package này có ràng buộc Torch/safetensors khác runtime; không đổi phép tính FFT hoặc tự viết mạng thay thế.
 
 GFISRV2 có 4.208.736 parameters. FP16 đã thử trên model thật; FFT bên trong source gốc chuyển sang FP32 rồi trở về dtype ban đầu. Tiling dùng cùng overlap/blending của backend, nhưng FFT có ngữ cảnh toàn tile nên các tile size khác nhau có thể cho kết quả khác nhau. Mặc định chọn 1024/512/256 theo VRAM trống, có OOM fallback và nhớ giới hạn trong batch.
+
+### Cân chỉnh đen/trắng cho các model bổ sung (0.3.1)
+
+`load_workflow` bật `AutoAdjustLevels=True` cho Eula, Manga Ora và MangaScale GFISRV2 theo yêu cầu người dùng. Dùng nguyên `enhance_contrast` trong `preprocess_worker_image` của upstream; hàm chỉ chạy khi ảnh được nhận diện là grayscale. Không thay kiến trúc, weights, tile, precision hoặc postprocessing. Các chain MangaJaNai grayscale đã bật sẵn; workflow MangaJaNai/IllustrationJaNai gốc giữ nguyên.
+
+Workflow nằm trong fingerprint của manifest nên kết quả cũ không được coi là đã hoàn thành theo cấu hình mới. Vẫn cần `--overwrite` hoặc thư mục output mới để tạo lại; không tự ghi đè. Giới hạn NaN của auto levels gốc trên ảnh một màu vẫn được kiểm tra và báo lỗi, không tạo output giả thành công.
 
 ## Colab runtime
 

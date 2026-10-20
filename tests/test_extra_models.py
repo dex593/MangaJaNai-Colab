@@ -13,7 +13,13 @@ from manga_colab.scanner import build_plan, scan_files
 
 
 def test_original_workflow_remains_unchanged():
-    assert load_workflow() == json.loads((DATA / "workflow.json").read_text(encoding="utf-8"))
+    workflow = load_workflow()
+    assert workflow == json.loads((DATA / "workflow.json").read_text(encoding="utf-8"))
+    assert all(
+        chain["AutoAdjustLevels"]
+        for chain in workflow["Chains"]["$values"]
+        if chain["IsGrayscale"]
+    )
 
 
 @pytest.mark.parametrize("model", list(EXTRA_MODELS))
@@ -23,7 +29,7 @@ def test_extra_models_do_not_use_mangajanai_height_bands(model, height, scale):
     workflow = load_workflow(model=model)
     chain = select_chain(800, height, True, scale, workflow)
     assert chain["ModelFilePath"] == EXTRA_MODELS[model]["filename"]
-    assert chain["AutoAdjustLevels"] is False
+    assert chain["AutoAdjustLevels"] is True
     assert chain["ResizeFactorBeforeUpscale"] == 100
     assert len(workflow["Chains"]["$values"]) == 1
 
@@ -66,6 +72,7 @@ def test_settings_and_cli_for_each_extra_model(config, model):
     settings = json.loads(json.dumps(make_settings(config, workflow, 1, False)))
     actual = settings["Workflows"]["$values"][0]
     assert actual["Chains"]["$values"][0]["ModelFilePath"] == EXTRA_MODELS[model]["filename"]
+    assert actual["Chains"]["$values"][0]["AutoAdjustLevels"] is True
     assert config.model == model
     parsed = parser().parse_args(
         ["run", "--input", str(config.input), "--model", model, "--auto-model"]

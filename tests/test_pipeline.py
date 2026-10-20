@@ -1,6 +1,7 @@
 """Orchestration tests with an explicitly injected test backend, never AI smoke tests."""
 
 import json
+from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
 
@@ -9,6 +10,7 @@ from PIL import Image
 
 from manga_colab import pipeline
 from manga_colab.model_manager import ModelManager
+from manga_colab.model_selector import EXTRA_MODELS, load_workflow
 
 
 @pytest.fixture
@@ -80,6 +82,30 @@ def test_changed_config_cannot_skip(config, write_image, isolated_backend):
     assert pipeline.run(config) == 0
     assert pipeline.run(replace(config, scale=3)) == 2
     assert isolated_backend.calls == 1
+
+
+@pytest.mark.parametrize("model", list(EXTRA_MODELS))
+def test_auto_levels_upgrade_requires_explicit_overwrite(
+    config, write_image, isolated_backend, monkeypatch, model
+):
+    config = replace(config, model=model)
+    write_image(config.input / "one.png")
+    old_workflow = deepcopy(load_workflow(model=model))
+    old_workflow["Chains"]["$values"][0]["AutoAdjustLevels"] = False
+    with monkeypatch.context() as old:
+        old.setattr(pipeline, "load_workflow", lambda *args: old_workflow)
+        assert pipeline.run(config) == 0
+    output = config.output / "one.png"
+    before = (output.read_bytes(), output.stat().st_mtime_ns)
+    assert pipeline.run(config) == 2
+    assert report(config)["summary"]["skipped"] == 0
+    assert isolated_backend.calls == 1
+    assert (output.read_bytes(), output.stat().st_mtime_ns) == before
+    assert pipeline.run(replace(config, overwrite=True)) == 0
+    assert isolated_backend.calls == 2
+    assert pipeline.run(config) == 0
+    assert report(config)["summary"]["skipped"] == 1
+    assert isolated_backend.calls == 2
 
 
 def test_changed_model_cannot_skip_or_overwrite_previous_result(
