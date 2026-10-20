@@ -162,3 +162,48 @@ def test_model_choice_reaches_cli_and_uses_separate_output(monkeypatch, choice, 
     assert "--auto-model" not in calls[0]
     exec("".join(notebook["cells"][6]["source"]), scope)
     assert calls[1][calls[1].index("--output") + 1] == scope["OUTPUT_DIR"]
+
+
+@pytest.mark.parametrize("scale", [1, 2, 3, 4])
+def test_fixed_upscale_choice_reaches_cli(monkeypatch, scale):
+    notebook = json.loads(
+        (Path(__file__).parents[1] / "colab/Run_MangaJaNai.ipynb").read_text(encoding="utf-8")
+    )
+    form = "".join(notebook["cells"][1]["source"])
+    assert 'Upscale = "2" # @param ["1", "2", "3", "4"]' in form
+    scale_field = next(line for line in form.splitlines() if line.startswith("Upscale ="))
+    assert "allow-input" not in scale_field
+    format_field = next(line for line in form.splitlines() if line.startswith("Đuôi ="))
+    assert '"avif"' not in format_field
+    calls = []
+
+    def live(args, **kwargs):
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0)
+
+    monkeypatch.setattr(
+        runpy, "run_path", lambda path: {"run_live": live, "refresh_drive": lambda path: None}
+    )
+    scope = {}
+    exec(form.replace('Upscale = "2"', f'Upscale = "{scale}"'), scope)
+    exec("".join(notebook["cells"][5]["source"]), scope)
+    assert calls[0][calls[0].index("--scale") + 1] == str(scale)
+    assert scope["MODEL_CACHE_DIR"] == scope["Model"]
+    if scale > 2:
+        ora_form = form.replace('Upscale = "2"', f'Upscale = "{scale}"').replace(
+            'Bộ = "MangaJaNai (tự chọn)"', 'Bộ = "2x Manga Ora"'
+        )
+        with pytest.raises(ValueError, match="Ora"):
+            exec(ora_form, {})
+
+
+def test_notebook_uses_requested_plain_language():
+    notebook = json.loads(
+        (Path(__file__).parents[1] / "colab/Run_MangaJaNai.ipynb").read_text(encoding="utf-8")
+    )
+    text = "\n".join("".join(cell["source"]) for cell in notebook["cells"])
+    assert "Thư mục lưu Model upscale" in text
+    assert "Thư mục lưu AI" not in text
+    assert "Change runtime type (Thay đổi loại thời gian chạy)" in text
+    assert "tạo thư mục **Manga** rồi vào đó tạo thư mục **Input**" in text
+    assert "phóng to" not in text.casefold()

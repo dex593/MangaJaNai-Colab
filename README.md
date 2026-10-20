@@ -23,25 +23,35 @@ flowchart LR
 
 ## Bắt đầu trên Colab
 
-1. Nhấn **Open in Colab**, chọn **Runtime → Change runtime type → GPU**, **Runtime Version: 2026.07 (Python 3.12)**. T4, L4 hoặc A100 đều được nếu Colab cấp GPU tương thích với PyTorch của runtime.
-2. Tạo thư mục `MyDrive/Manga/Input`, chép ảnh vào đó. Thư mục con được giữ nguyên.
+1. Nhấn **Open in Colab**, chọn **Runtime (Thời gian chạy) → Change runtime type (Thay đổi loại thời gian chạy) → GPU**, **Runtime Version: 2026.07 (Python 3.12)**. T4, L4 hoặc A100 đều được nếu Colab cấp GPU tương thích với PyTorch của runtime.
+2. Trên Google Drive, trong **My Drive**, tạo thư mục **Manga** rồi vào đó tạo thư mục **Input**. Chép ảnh vào **Input**. Thư mục con được giữ nguyên.
 3. **Bước 1 — Chọn thư mục và cách Upscale:** nhập nơi chứa ảnh gốc, nơi lưu ảnh đã Upscale và số lần Upscale. Các ô đều dùng tiếng Việt có dấu. Chương trình đã có sẵn địa chỉ tải và tự chọn cách xử lý; bạn không cần điền nhánh, mã phiên bản hay thông số kỹ thuật. Bấm ▶ để áp dụng lựa chọn.
 4. **Bước 2 — Kết nối Google Drive:** chọn tài khoản Google chứa ảnh và làm theo hướng dẫn cấp quyền trên màn hình.
 5. **Bước 3 — Tải bản chương trình mới nhất:** bấm ▶ và chờ báo hoàn tất. Không cần tài khoản GitHub hay mật khẩu.
-6. **Bước 4 — Chuẩn bị trước khi Upscale:** cài các thành phần cần thiết, kiểm tra card đồ họa và thư mục. Lần đầu có thể mất vài phút; chờ thông báo “Sẵn sàng”.
-7. **Bước 5 — Bắt đầu Upscale:** xem số ảnh tìm thấy, ảnh bỏ qua, ảnh đang chạy và thời gian còn lại ước tính.
+6. **Bước 4 — Chuẩn bị trước khi Upscale:** cài các thành phần cần thiết, kiểm tra card đồ họa và thư mục. Lần đầu có thể mất vài phút; chờ thông báo “Máy đã sẵn sàng”.
+7. **Bước 5 — Bắt đầu Upscale:** xem số ảnh tìm thấy, ảnh cần làm, ảnh đã làm từ trước và tiến độ thực tế.
 8. **Bước 6 — Xem kết quả:** ảnh nằm trong thư mục bạn chọn ở Bước 1. Nếu có lỗi, bảng kết quả sẽ ghi rõ ảnh nào và nguyên nhân.
 
 Mỗi “bước” là một ô có nút ▶ ở bên trái trong notebook (còn gọi là cell). Chạy lần lượt, đợi bước trước xong rồi mới chạy bước sau.
+
+### Cách đọc thông báo ở Bước 5
+
+Thông báo chia thành bốn phần: **Tìm ảnh → Chuẩn bị Upscale → Đang Upscale → Kết quả**. Nếu thiếu model, phần tải xuống xuất hiện riêng, có dung lượng và tốc độ tải.
+
+- **Ảnh tìm thấy** là toàn bộ ảnh trong thư mục. **Cần Upscale** chỉ đếm ảnh sẽ làm trong lượt này; **Đã làm từ trước** là những kết quả đã được kiểm tra và giữ lại.
+- Khi xử lý, xem tên ảnh, kích thước trước → sau và model đang dùng. Hai thanh tiến độ cho biết cả lượt chạy đã đến đâu và AI đã xử lý bao nhiêu phần của ảnh hiện tại. Nội dung cập nhật tại chỗ, không in thêm một bảng cho mỗi ảnh.
+- AI đạt 100% vẫn có thể cần thêm thời gian lưu ảnh. Chỉ khi lưu xong và kiểm tra lại tệp, số **Đã lưu** mới tăng.
+- **Cần kiểm tra** có tên ảnh, nguyên nhân và hướng xử lý. Tốc độ tính bằng ảnh/phút; thời gian còn lại được ước tính từ tiến độ thực tế và có thể thay đổi.
+- Thông tin phiên bản, bộ nhớ card, log và báo cáo nằm trong mục **Thông tin kỹ thuật và báo cáo** có thể bấm mở. Chế độ “Thông thường” giữ log gọn; chi tiết từng ảnh vẫn được lưu trong `application.log`.
 
 | Ô cần điền ở Bước 1 | Cách chọn |
 |---|---|
 | Ảnh | Đường dẫn đến thư mục chứa ảnh gốc trên Drive, không phải link chia sẻ. Chương trình giữ nguyên ảnh gốc. |
 | Lưu | Thư mục lưu ảnh đã Upscale, phải khác thư mục ảnh gốc. Chưa có thì chương trình tự tạo. |
-| AI | Nơi giữ các tệp AI cần cho chương trình. Để trên Drive để lần sau không phải tải lại. |
+| Model | **Thư mục lưu Model upscale.** Để trên Drive để lần sau không phải tải lại. |
 | Bộ | Chọn **MangaJaNai (tự chọn)**, **Eula Digimanga BW V2 NC1**, **2x Manga Ora** hoặc **MangaScale GFISRV2 4x**. |
-| Upscale | `2` nghĩa là 1000 × 1500 thành 2000 × 3000. MangaJaNai/Eula/MangaScale hỗ trợ `1`–`4`, Ora hỗ trợ `1`–`2`; có thể nhập `1.5`. |
-| Đuôi | Định dạng ảnh kết quả. Chọn `png` nếu chưa biết chọn gì. |
+| Upscale | Chọn `1`, `2`, `3` hoặc `4` trong danh sách. `2` nghĩa là 1000 × 1500 thành 2000 × 3000. Manga Ora chỉ nhận `1` hoặc `2`. |
+| Đuôi | Chọn `png`, `jpeg` hoặc `webp`. Chọn `png` nếu chưa biết chọn gì. |
 | Chạy | Mặc định **Chỉ Upscale ảnh chưa làm**: giữ kết quả đã hoàn tất. Chọn **Upscale lại tất cả ảnh** khi muốn làm lại và thay thế kết quả cũ. Chỉ chọn được một trong hai cách. |
 | Thử | Bật để thử lại những ảnh bị lỗi ở lần trước, sau khi đã xử lý nguyên nhân. |
 | Xem | Bật để chỉ xem danh sách, chưa chạy Upscale. |
@@ -110,7 +120,7 @@ Workflow được trích từ **`DEFAULT_WORKFLOW` trong `MainWindowViewModel.cs
 
 Ảnh màu dùng **IllustrationJaNai V3denoise FDAT** `.safetensors`. Scale ≤2 chọn chain 2x; >2 chọn 4x. Tại đúng 2x, cả min/max cùng khớp nhưng chain 2x đứng trước nên thắng. Tất cả điều kiện và thứ tự nằm trong [workflow.json](manga_colab/data/workflow.json), filename/size/SHA-256 nằm trong [models.json](manga_colab/data/models.json).
 
-Scale hỗ trợ từ **1 đến 4**, kể cả 1.5/2.5. Backend luôn chạy AI rồi dùng `final_target_resize` gốc để đạt kích thước cuối. Grayscale giữ auto levels và downscale với ICC Dot Gain 20% ↔ linear gamma; ảnh màu giữ Lanczos upstream. Không thêm sharpening, denoiser hoặc resize thay thế AI.
+Biểu mẫu Colab chỉ cho chọn **1, 2, 3, 4**. CLI vẫn hỗ trợ số lẻ như 1.5/2.5 và định dạng AVIF nếu runtime hỗ trợ. Backend luôn chạy AI rồi dùng `final_target_resize` gốc để đạt kích thước cuối. Grayscale giữ auto levels và downscale với ICC Dot Gain 20% ↔ linear gamma; ảnh màu giữ Lanczos upstream. Không thêm sharpening, denoiser hoặc resize thay thế AI.
 
 ### Detector và các hành vi upstream cần biết
 
@@ -140,7 +150,7 @@ Nếu API rate limit, server không hỗ trợ Range hoặc asset thay đổi, c
 
 ### Tải Eula, Manga Ora và MangaScale
 
-Chỉ tải model của bộ AI đang chọn, cache chung ở ô **AI**. Tệp được tải vào `.part`, kiểm tra dung lượng và SHA-256 trong catalog, rồi mới đổi sang tên chính thức trong cache. Có tiến độ theo số byte thực và thử lại khi mất mạng; không dùng tệp chưa hoàn tất. `gdown 6.4.2` xử lý liên kết Google Drive công khai, không đọc cookie đăng nhập, không dùng Colab Secrets hay token.
+Chỉ tải model của bộ AI đang chọn, cache chung ở ô **Model**. Tệp được tải vào `.part`, kiểm tra dung lượng và SHA-256 trong catalog, rồi mới đổi sang tên chính thức trong cache. Có tiến độ theo số byte thực và thử lại khi mất mạng; không dùng tệp chưa hoàn tất. `gdown 6.4.2` xử lý liên kết Google Drive công khai, không đọc cookie đăng nhập, không dùng Colab Secrets hay token.
 
 | Model | Tệp trong cache | Nguồn tải đã kiểm tra |
 |---|---|---|
@@ -148,7 +158,7 @@ Chỉ tải model của bộ AI đang chọn, cache chung ở ô **AI**. Tệp �
 | Manga Ora 2x | `2x_Manga_Ora.pth` · 45.723.706 bytes | [Bản Google Drive do người dùng cung cấp](https://drive.google.com/file/d/1BWnJMFEGbP_uyMEnIruh5u6Xhy6Q0eV5/view), đã tải và khớp SHA-256 với OpenModelDB; không gọi đây là nguồn của tác giả. [Nguồn gốc được OpenModelDB dẫn tới](https://drive.proton.me/urls/S0NC2P0T8R#wo0OdPrwbKZO) |
 | MangaScale GFISRV2 4x | `4x_wtp_MangaScale_GfisrV2.safetensors` · 16.886.143 bytes | [Tệp đã kiểm tra trong thư mục được cung cấp](https://drive.google.com/file/d/16arU7dkBe9jalWx1GbEpCWrz4c4lNWD0/view). Chọn bản safetensors, không tải bản ONNX. |
 
-Checksum Eula/Ora lấy từ metadata OpenModelDB commit `782aac088bd83dd3fc438a42eb0c3868dc559110`. Checksum MangaScale do project tính từ tệp tải thật ngày 20/10/2026, vì chưa tìm thấy checksum do tác giả công bố. Nguồn từng giá trị được ghi trong [extra_models.json](manga_colab/data/extra_models.json). Nếu Google Drive hết lượt tải, liên kết bị xóa hoặc tệp thay đổi, chương trình báo lỗi kèm nguồn và nơi cài thủ công. Tải đúng tệp từ liên kết trên, lưu đúng tên vào thư mục AI rồi chạy lại Bước 5. Tệp khác checksum sẽ không được chấp nhận.
+Checksum Eula/Ora lấy từ metadata OpenModelDB commit `782aac088bd83dd3fc438a42eb0c3868dc559110`. Checksum MangaScale do project tính từ tệp tải thật ngày 20/10/2026, vì chưa tìm thấy checksum do tác giả công bố. Nguồn từng giá trị được ghi trong [extra_models.json](manga_colab/data/extra_models.json). Nếu Google Drive hết lượt tải, liên kết bị xóa hoặc tệp thay đổi, chương trình báo lỗi kèm nguồn và nơi cài thủ công. Tải đúng tệp từ liên kết trên, lưu đúng tên vào thư mục lưu Model upscale rồi chạy lại Bước 5. Tệp khác checksum sẽ không được chấp nhận.
 
 ## Resume, an toàn dữ liệu và staging
 

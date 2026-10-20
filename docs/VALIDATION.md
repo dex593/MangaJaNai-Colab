@@ -6,7 +6,7 @@ Ngày chạy gần nhất: 2026-10-20. Không dùng kết quả giả lập làm
 
 - Windows: Python 3.12.6, NumPy 2.1.2, OpenCV 4.12.0, Pillow 10.4.0, Rich 13.9.2, libvips 8.16.1.
 - Linux/WSL: Python 3.12.3, môi trường riêng cài từ `pyproject.toml` + pyvips 3.0.0/pyvips-binary 8.16.1.
-- `python -m pytest -q`: **221 passed** trên Linux; **219 passed, 2 skipped** trên Windows (bản 0.3.1). Hai bài kiểm tra gửi tín hiệu dừng cho cả nhóm tiến trình chỉ chạy trên Linux (môi trường Colab). Test descriptor GFISRV2 cần Torch/Spandrel; môi trường test tối thiểu không cài backend sẽ skip riêng bài này.
+- `python -m pytest -q`: **235 passed** trên Linux; **233 passed, 2 skipped** trên Windows (bản 0.4.0). Hai bài kiểm tra gửi tín hiệu dừng cho cả nhóm tiến trình chỉ chạy trên Linux (môi trường Colab). Test descriptor GFISRV2 cần Torch/Spandrel; môi trường test tối thiểu không cài backend sẽ skip riêng bài này.
 - `ruff check manga_colab tests scripts`: pass.
 - `bash -n scripts/setup_colab.sh scripts/check_environment.sh`: pass trên Linux.
 - Notebook: sáu code cells parse được bằng Python AST, không có secrets/token, không có inference engine trong notebook.
@@ -14,6 +14,15 @@ Ngày chạy gần nhất: 2026-10-20. Không dùng kết quả giả lập làm
 Phạm vi test: grayscale/color, pure B/W/uint8 overflow, threshold, mọi ranh giới height, scale 2/4 và chain priority, missing model, HTTP Range retries/truncated responses, invalid cache checksum, failed download không publish, manifest truncated tail, prepared recovery, source/config/model/workflow thay đổi, output corrupt, Unicode, duplicate filenames, recursive/excluded folders, multi-GPU index mapping, settings JSON, staging, dry-run, retry-failed, Ctrl+C và OOM control flow.
 
 `tests/test_pipeline.py` dùng test double ghi ảnh để cô lập logic checkpoint/file handling. `tests/test_oom.py` mô phỏng tín hiệu OOM, không làm cạn VRAM thật. Các test này không chứng minh chất lượng model.
+
+## Biểu mẫu và log phiên bản 0.4.0
+
+- Biểu mẫu chỉ cho chọn mức Upscale **1, 2, 3, 4**; bỏ AVIF khỏi danh sách định dạng. Thực thi Cell 1 và Cell 5 cho từng mức để kiểm tra tham số CLI. Manga Ora vẫn từ chối mức 3 và 4. Đổi ô cache thành **Model**, giữ đúng đường dẫn được truyền vào CLI.
+- Log Colab dùng bảng HTML với chữ dễ đọc, số ảnh tách rõ và thanh tiến độ cập nhật tại chỗ. Kiểm tra thoát ký tự trong tên tệp, cùng display ID qua các lần cập nhật, tốc độ/ETA tính từ số byte hoặc ảnh thực tế, và không tăng số **Đã lưu** trong khi còn lưu/kiểm tra ảnh.
+- Ảnh lỗi từ lượt trước không được gộp vào **Đã làm từ trước**. Thông báo dễ hiểu nằm ở phần chính; lỗi gốc vẫn nằm trong phần mở rộng, JSON và log. Chế độ thông thường giữ chi tiết từng ảnh trong file để tránh lặp trên màn hình.
+- Smoke test qua subprocess và kênh log thật: **MangaScale GFISRV2 4x**, GTX 1050 Ti, FP32, hai ảnh tự tạo 64×80 (đen trắng và màu) → hai output 256×320 được xác minh. Không OOM. Lượt sau thêm một tệp JPEG cố ý hỏng: **2 bỏ qua, 1 lỗi**, hai output cũ giữ nguyên byte và thời điểm sửa.
+- Chạy `doctor` trên máy local với GPU, backend và thư mục thật: các kiểm tra đạt. Xem log HTML từ lượt chạy thật trong Chrome ở khung rộng và khung 390 px; chữ tiếng Việt, đường dẫn dài, bảng lỗi và phần thu gọn hiển thị được, không tràn ngang.
+- Đây là kiểm tra HTML trong trình duyệt và GPU local, **chưa phải kiểm tra phiên Colab/T4 hay Google Drive thật**. Không thay thuật toán inference hoặc cân chỉnh mức đen/trắng trong bản 0.4.0.
 
 ## Log và hướng dẫn phiên bản 0.1.1
 

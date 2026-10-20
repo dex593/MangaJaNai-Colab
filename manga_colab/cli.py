@@ -6,7 +6,8 @@ import sys
 from pathlib import Path
 
 from .config import Config, ROOT, load_yaml
-from .display import make_console, model_label
+from .display import Card, make_console, model_label
+from .logger import user_message
 from .model_selector import EXTRA_MODELS
 
 
@@ -102,9 +103,7 @@ def parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Xác minh SHA-256 và thử load model cached trên CPU",
     )
-    models = commands.add_parser(
-        "models", help="Danh sách và tải model AI cần dùng"
-    )
+    models = commands.add_parser("models", help="Danh sách và tải model AI cần dùng")
     operations = models.add_subparsers(dest="operation", required=True)
     listing = operations.add_parser("list", help="Liệt kê filename, size và cache status")
     listing.add_argument("--models", type=Path, default=Path.home() / ".cache/mangajanai/models")
@@ -127,7 +126,6 @@ def main(argv: list[str] | None = None) -> int:
             if not path.is_file():
                 raise ValueError(f"Chưa có báo cáo: {path}. Xem log Cell 5 để biết lỗi.")
             display_report(console, json.loads(path.read_text(encoding="utf-8")))
-            console.print(f"JSON / CSV / log: {path.parent}", style="dim")
             return 0
         if args.command == "doctor":
             from .doctor import doctor
@@ -161,7 +159,7 @@ def main(argv: list[str] | None = None) -> int:
             with download_progress(console) as progress:
 
                 def factory(name: str, size: int):
-                    task = progress.add_task(model_label(name), total=size)
+                    task = progress.add_task(model_label(name), total=size, download=True, eta=True)
                     return lambda done, _: progress.update(
                         task, completed=done, total=max(done, size)
                     )
@@ -177,10 +175,24 @@ def main(argv: list[str] | None = None) -> int:
 
         return run(from_args(args), dry_run=args.command == "scan" or args.dry_run)
     except KeyboardInterrupt:
-        console.print("Đã dừng; chạy lại --resume.", style="yellow")
+        console.print(
+            Card(
+                "Đã dừng",
+                note="Kết quả hoàn tất được giữ lại. Chạy lại Bước 5 để tiếp tục.",
+                tone="yellow",
+            )
+        )
         return 130
     except Exception as exc:
-        console.print(f"{type(exc).__name__}: {exc}", style="red", markup=False)
+        error = f"{type(exc).__name__}: {exc}"
+        console.print(
+            Card(
+                "Chưa thể tiếp tục",
+                rows=[("Nguyên nhân", user_message(error))],
+                details=[("Chi tiết lỗi", error)],
+                tone="red",
+            )
+        )
         if getattr(args, "log_level", "normal") == "debug":
             import traceback
 

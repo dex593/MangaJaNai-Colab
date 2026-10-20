@@ -15,7 +15,7 @@ from .backend import Backend
 from .checkpoint import Checkpoint
 from .config import Config, ROOT, UPSTREAM_COMMIT
 from .gpu import gpu_info
-from .display import model_label
+from .display import Card, model_label
 from .logger import (
     BatchProgress,
     configure,
@@ -48,7 +48,7 @@ def _run(config: Config, state: Path, started: float, dry_run: bool) -> int:
         "Đọc lại thư mục ảnh gốc: %s\nĐang kiểm tra danh sách; chưa bắt đầu Upscale.", config.input
     )
     with scan_progress(console, config.log_level == "quiet") as scanning:
-        task = scanning.add_task("scan", total=0)
+        task = scanning.add_task("Kiểm tra ảnh", total=0, scan=True)
         plan = build_plan(
             config,
             workflow,
@@ -61,16 +61,28 @@ def _run(config: Config, state: Path, started: float, dry_run: bool) -> int:
     atomic_json(state / "plan.json", [item.as_json() for item in plan])
     if not plan:
         report = write_report(
-            state, [], 0, started, config.as_json(), "Input không có ảnh được hỗ trợ"
+            state,
+            [],
+            0,
+            started,
+            config.as_json(),
+            "Chưa tìm thấy ảnh được hỗ trợ. Kiểm tra thư mục ảnh gốc và đợi Drive tải ảnh lên xong.",
         )
         display_report(console, report)
         return 2
     if dry_run:
-        for item in plan:
-            console.print(
-                f"{item.source} → {item.output} | {item.model or item.error}", markup=False
+        console.print(
+            Card(
+                "Xem trước · Chưa chạy Upscale",
+                metrics=[
+                    ("Ảnh tìm thấy", len(plan)),
+                    ("Cần kiểm tra", sum(bool(item.error) for item in plan)),
+                ],
+                rows=[(item.source, item.error or model_label(item.model)) for item in plan],
+                note="Tắt “Chỉ xem danh sách” ở Bước 1, chạy lại Bước 1 rồi Bước 5 để bắt đầu.",
+                details=[("Danh sách đầy đủ", state / "plan.json")],
             )
-        console.print(f"Plan: {state / 'plan.json'}", markup=False)
+        )
         return 2 if any(item.error for item in plan) else 0
     gpu = gpu_info(config.cuda_device, required=True)
     probe_directory(config.models)
@@ -110,8 +122,9 @@ def _run(config: Config, state: Path, started: float, dry_run: bool) -> int:
         elif output.exists() and not config.overwrite:
             row.update(
                 status="failed",
-                error="Output đã tồn tại nhưng không khớp manifest/cấu hình hoặc bị hỏng. "
-                "Dùng output mới hoặc --overwrite để thay thế.",
+                error="Ảnh kết quả đã có nhưng khác lựa chọn hiện tại hoặc bị hỏng. "
+                "Ở Bước 1, chọn “Upscale lại tất cả ảnh” hoặc chọn thư mục Lưu khác, "
+                "rồi chạy lại Bước 1 và 5. Với CLI, dùng --overwrite để thay thế.",
             )
         elif (
             old.get("status") == "failed"
@@ -141,28 +154,32 @@ def _run(config: Config, state: Path, started: float, dry_run: bool) -> int:
         dashboard(
             console,
             {
-                "Phiên bản / commit": f"{__version__} / {commit}",
-                "Bộ xử lý ảnh": UPSTREAM_COMMIT[:12],
-                "Card đồ họa": gpu["name"],
-                "CUDA / PyTorch": f"{gpu['cuda']} / {gpu['torch']}",
-                "Bộ nhớ card trống / tổng": f"{gpu['free']/2**30:.2f} / {gpu['total']/2**30:.2f} GiB",
-                "Ảnh gốc": config.input,
-                "Lưu kết quả": config.output,
-                "Thư mục model AI": config.models,
-                "Upscale": f"{config.scale:g}×  ·  {config.format.upper()}",
-                "Chọn model": "MangaJaNai · tự chọn theo từng ảnh"
+                "Kết quả bạn chọn": f"Upscale {config.scale:g}× · {config.format.upper()}",
+                "Model": "MangaJaNai · tự chọn theo từng ảnh"
                 if config.model == "auto"
                 else EXTRA_MODELS[config.model]["label"],
                 "Cách chạy": "Upscale lại tất cả ảnh"
                 if config.overwrite
                 else ("Chỉ Upscale ảnh chưa làm" if config.resume else "Không ghi đè kết quả cũ"),
+                "Ảnh gốc": config.input,
+                "Nơi lưu kết quả": config.output,
+                "Model cần tải": f"{len(missing)} model" if missing else "Đã có sẵn",
+            },
+            {
                 "Ảnh tìm thấy": len(plan),
-                "Model cần tải": len(missing),
-                "Đã xong · bỏ qua": sum(
+                "Cần Upscale": len(pending),
+                "Đã làm từ trước": sum(
                     row["status"] == "skipped" and not row.get("error") for row in rows
                 ),
-                "Cần Upscale": len(pending),
-                "Lỗi cần kiểm tra": sum(bool(row.get("error")) for row in rows),
+                "Cần kiểm tra": sum(bool(row.get("error")) for row in rows),
+            },
+            {
+                "Phiên bản / commit": f"{__version__} / {commit}",
+                "Bộ xử lý ảnh": UPSTREAM_COMMIT[:12],
+                "Card đồ họa": gpu["name"],
+                "CUDA / PyTorch": f"{gpu['cuda']} / {gpu['torch']}",
+                "Bộ nhớ card trống / tổng": f"{gpu['free']/2**30:.2f} / {gpu['total']/2**30:.2f} GiB",
+                "Thư mục lưu Model upscale": config.models,
             },
         )
     backend = None
@@ -186,7 +203,9 @@ def _run(config: Config, state: Path, started: float, dry_run: bool) -> int:
             ) as downloads:
 
                 def factory(name: str, size: int):
-                    task = downloads.add_task(model_label(name), total=size)
+                    task = downloads.add_task(
+                        model_label(name), total=size, download=True, eta=True
+                    )
 
                     def update(done: int, _: int) -> None:
                         downloads.update(task, completed=done, total=max(done, size))
@@ -215,7 +234,13 @@ def _run(config: Config, state: Path, started: float, dry_run: bool) -> int:
                 ) and not config.output.is_relative_to(config.input):
                     raise OSError("Output symlink trỏ vào input; từ chối ghi")
                 progress.image(
-                    index + 1, item.source, item.width, item.height, item.grayscale, item.model
+                    index + 1,
+                    item.source,
+                    item.width,
+                    item.height,
+                    item.grayscale,
+                    item.model,
+                    scale=config.scale,
                 )
                 log.info("▶ %d/%d  %s", index + 1, len(pending), item.source)
                 log.debug(
@@ -340,5 +365,4 @@ def _run(config: Config, state: Path, started: float, dry_run: bool) -> int:
             backend.close()
         report = write_report(state, rows, len(plan), started, config.as_json(), fatal)
         display_report(console, report)
-        console.print(f"Báo cáo và log: {state}", style="dim", markup=False)
     return code or (2 if any(row["status"] == "failed" or row.get("error") for row in rows) else 0)

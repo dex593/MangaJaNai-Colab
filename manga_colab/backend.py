@@ -150,7 +150,7 @@ class Backend:
         tw, th = tiler.starting_tile_size(width, height, image.shape[2] if image.ndim == 3 else 1)
         done = 0
         total = math.ceil(width / tw) * math.ceil(height / th)
-        self.callback(0, total, f"Mỗi phần: {tw}×{th} px")
+        self.callback(0, total, "Đang Upscale bằng model")
 
         def tracked(tile, region):
             nonlocal done
@@ -159,7 +159,7 @@ class Backend:
                 # Restart the image instead of upstream's buggy mid-row OOM restart.
                 raise TileOOM(max(16, min(tw, th) // 2))
             done += 1
-            self.callback(done, max(done, total), f"Mỗi phần: {tw}×{th} px")
+            self.callback(done, max(done, total), "Đang Upscale bằng model")
             return result
 
         return self.original_split(image, tracked, tiler, overlap)
@@ -236,7 +236,9 @@ class Backend:
                     tile_size = self.module.get_tile_size(str(exc.tile))
                     self.tile_limits[model_path] = exc.tile
                     torch.cuda.empty_cache()
-                    progress(0, 1, f"Thiếu bộ nhớ · thử lại {attempt + 1} · phần {exc.tile} px")
+                    progress(
+                        0, 1, f"Thiếu bộ nhớ card · đang thử cách dùng ít bộ nhớ hơn (lần {attempt + 1})"
+                    )
             if not np.isfinite(result).all():
                 raise ValueError("AI output chứa NaN/Inf; thử --precision fp32")
             if gray:

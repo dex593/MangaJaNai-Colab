@@ -9,11 +9,36 @@ import signal
 import subprocess
 import sys
 from collections import deque
+from html import escape
 from pathlib import Path
 from typing import Any
 
 EVENT_PREFIX = "@@MANGA_COLAB_UI@@"
 STEP_PREFIX = "@@MANGA_COLAB_STEP@@"
+
+
+def html_card(title: str, body: str, tone: str = "blue") -> str:
+    accent = {"blue": "#2563eb", "green": "#15803d", "yellow": "#a16207", "red": "#b91c1c"}[tone]
+    return (
+        '<section style="box-sizing:border-box;max-width:960px;margin:12px 0;padding:22px;'
+        "background:#fff;color:#172033;border:1px solid #dce3ed;border-radius:14px;"
+        'font:14px/1.6 system-ui,-apple-system,Segoe UI,sans-serif;overflow-wrap:anywhere">'
+        f'<h3 style="font:600 19px/1.4 system-ui;margin:0 0 16px;color:{accent}">'
+        f"{escape(title)}</h3>{body}</section>"
+    )
+
+
+def notice(title: str, message: str, displays: dict, key: str, tone: str = "blue") -> None:
+    show_event(
+        dict(
+            id=key,
+            text=f"{title}\n{message}\n",
+            html=html_card(
+                title, f'<p style="margin:0;white-space:pre-wrap">{escape(message)}</p>', tone
+            ),
+        ),
+        displays,
+    )
 
 
 def refresh_drive(input_dir: str) -> None:
@@ -23,7 +48,8 @@ def refresh_drive(input_dir: str) -> None:
         return
     from google.colab import drive
 
-    print("Đang lưu dữ liệu còn chờ lên Google Drive…", flush=True)
+    displays: dict[str, Any] = {}
+    notice("Kết nối Google Drive", "Đang lưu dữ liệu còn chờ lên Google Drive…", displays, "drive")
     try:
         drive.flush_and_unmount(timeout_ms=60_000)
     except Exception as exc:
@@ -32,20 +58,25 @@ def refresh_drive(input_dir: str) -> None:
             "chờ Drive ổn định rồi chạy lại Bước 5. "
             "Không ngắt kết nối hoặc đặt lại Colab lúc này."
         ) from exc
-    print("Đang kết nối lại Drive để tìm ảnh mới…", flush=True)
+    notice("Kết nối Google Drive", "Đang kết nối lại Drive để tìm ảnh mới…", displays, "drive")
     try:
         drive.mount("/content/drive", force_remount=True)
     except Exception as exc:
         raise RuntimeError(
-            "Chưa kết nối lại được Google Drive. Chạy Bước 2 để kết nối, "
-            "rồi chạy lại Bước 5."
+            "Chưa kết nối lại được Google Drive. Chạy Bước 2 để kết nối, " "rồi chạy lại Bước 5."
         ) from exc
     if not Path(input_dir).is_dir():
         raise FileNotFoundError(
             f"Không tìm thấy thư mục ảnh gốc: {input_dir}. "
             "Kiểm tra tài khoản Drive và đường dẫn ở Bước 1."
         )
-    print("✓ Đã kết nối lại Drive. Bắt đầu kiểm tra ảnh.", flush=True)
+    notice(
+        "Google Drive đã sẵn sàng",
+        "Đã kết nối lại Drive. Bắt đầu kiểm tra ảnh.",
+        displays,
+        "drive",
+        "green",
+    )
 
 
 def show_event(event: dict, displays: dict) -> None:
@@ -88,6 +119,7 @@ def run_live(
     displays: dict[str, Any] = {}
     tail: deque[str] = deque(maxlen=30)
     log = None
+    has_steps = False
     if log_path:
         path = Path(log_path)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -123,7 +155,13 @@ def run_live(
                     if log:
                         log.write(text)
                     if line.startswith(STEP_PREFIX):
-                        print("  • " + line[len(STEP_PREFIX) :].strip(), flush=True)
+                        has_steps = True
+                        notice(
+                            "Đang chuẩn bị chương trình",
+                            line[len(STEP_PREFIX) :].strip(),
+                            displays,
+                            "setup",
+                        )
                     elif not quiet:
                         if event:
                             show_event(event, displays)
@@ -154,7 +192,17 @@ def run_live(
             log.close()
     if result.returncode and quiet:
         print("\nKhông hoàn tất. Chi tiết cuối log:\n" + "".join(tail), flush=True)
-    if log_path:
+    if has_steps:
+        notice(
+            "Chuẩn bị xong" if not result.returncode else "Chưa chuẩn bị xong",
+            "Đã hoàn tất các bước cài đặt."
+            if not result.returncode
+            else "Xem phần thông báo lỗi rồi chạy lại Bước 4.",
+            displays,
+            "setup",
+            "green" if not result.returncode else "red",
+        )
+    if log_path and result.returncode:
         print(f"Log chi tiết: {log_path}", flush=True)
     if check:
         result.check_returncode()

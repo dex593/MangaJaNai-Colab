@@ -9,8 +9,8 @@ import pytest
 from rich.text import Text
 
 from manga_colab import notebook
-from manga_colab.display import AppProgress, NotebookConsole
-from manga_colab.logger import BatchProgress, scan_progress
+from manga_colab.display import AppProgress, Card, NotebookConsole
+from manga_colab.logger import BatchProgress, configure, scan_progress, user_message
 
 
 def test_notebook_updates_existing_html_display(monkeypatch):
@@ -123,17 +123,19 @@ def test_rate_counts_successes_only(monkeypatch):
     progress = BatchProgress(NotebookConsole(), 2, quiet=True)
     now[0] = 12.0
     progress.advance(success=False)
-    assert "0.000 ảnh/s" in progress.progress.tasks[0].fields["detail"]
+    assert "0.0 ảnh/phút" in progress.progress.tasks[0].fields["detail"]
+    assert progress.progress.tasks[1].completed == 0
+    assert "Chưa hoàn tất" in progress.progress.html()
     now[0] = 14.0
     progress.advance(success=True)
-    assert "0.250 ảnh/s" in progress.progress.tasks[0].fields["detail"]
+    assert "15.0 ảnh/phút" in progress.progress.tasks[0].fields["detail"]
 
 
 def test_scan_summary_has_count_without_last_filename(monkeypatch):
     output = io.StringIO()
     monkeypatch.setattr(sys, "stdout", output)
     with scan_progress(NotebookConsole()) as progress:
-        task = progress.add_task("scan", total=3, detail="001.jpg")
+        task = progress.add_task("Kiểm tra ảnh", total=3, scan=True)
         progress.update(task, completed=3, detail="017.jpg")
     events = [
         json.loads(line[len(notebook.EVENT_PREFIX) :]) for line in output.getvalue().splitlines()
@@ -141,6 +143,84 @@ def test_scan_summary_has_count_without_last_filename(monkeypatch):
     assert "3/3" in events[-1]["text"]
     assert "ảnh" in events[-1]["text"]
     assert ".jpg" not in events[-1]["text"]
+    assert ".jpg" not in events[-1]["html"]
+
+
+def test_card_escapes_all_user_text_and_collapses_technical_details():
+    filename = '<script>alert("日本語")</script>'
+    html = Card(
+        filename,
+        rows=[(filename, filename)],
+        metrics=[(filename, filename)],
+        details=[("Phiên bản", filename)],
+        note=filename,
+    ).html()
+    assert "<script>" not in html
+    assert "&lt;script&gt;" in html
+    assert "日本語" in html
+    assert "<pre" not in html
+    assert "<details " in html and "<details open" not in html
+
+
+def test_batch_saving_does_not_report_success_before_verification():
+    progress = BatchProgress(NotebookConsole(), 1, quiet=True)
+    progress.image(1, "Chương 1/日本語.png", 900, 1350, True, "model.pth", scale=4)
+    assert "900 × 1350 → 3600 × 5400 px" in progress.progress.html()
+    progress.update(3, 4, "Đang Upscale bằng model")
+    assert 'aria-valuenow="75.00"' in progress.progress.html()
+    progress.update(4, 4, "Đang Upscale bằng model")
+    progress.update(0, 1, "Hoàn thiện và lưu ảnh")
+    progress.update(1, 1, "Đã lưu tạm · đang kiểm tra")
+    html = progress.progress.html()
+    assert "Đang lưu và kiểm tra ảnh kết quả" in html
+    assert "Đã lưu và kiểm tra kết quả" not in html
+    assert progress.progress.tasks[0].completed == 0
+    progress.advance()
+    assert "Đã lưu và kiểm tra kết quả" in progress.progress.html()
+    assert progress.progress.tasks[0].completed == 1
+
+
+def test_download_html_uses_transferred_bytes_and_measured_speed():
+    now = [0.0]
+    progress = AppProgress(
+        console=NotebookConsole(),
+        title="Tải model",
+        get_time=lambda: now[0],
+    )
+    task = progress.add_task("Model", total=4096, download=True, eta=True)
+    progress.update(task, completed=1024)
+    now[0] = 2.0
+    progress.update(task, completed=2048)
+    html = progress.html()
+    assert 'aria-valuenow="50.00"' in html
+    assert "2.0 KiB / 4.0 KiB" in html
+    assert "512.0 B/s" in html
+    assert "Còn khoảng 00:00:04" in html
+
+
+def test_normal_log_keeps_per_image_details_in_file(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("MANGA_COLAB_NOTEBOOK", "1")
+    path = tmp_path / "application.log"
+    _, log = configure(path, "normal")
+    try:
+        log.info("Ảnh đã lưu: 日本語.png")
+        assert not capsys.readouterr().out
+        log.error("日本語.png: ValueError: tệp bị hỏng")
+        event = json.loads(capsys.readouterr().out.removeprefix(notebook.EVENT_PREFIX))
+        assert "tệp bị hỏng" in event["html"]
+        assert "日本語.png" in event["html"]
+        saved = path.read_text(encoding="utf-8")
+        assert "Ảnh đã lưu: 日本語.png" in saved
+        assert "ValueError: tệp bị hỏng" in saved
+    finally:
+        for handler in log.handlers:
+            handler.close()
+        log.handlers.clear()
+
+
+def test_memory_error_message_distinguishes_gpu_from_unknown_memory():
+    assert "Card đồ họa" in user_message("RuntimeError: CUDA out of memory")
+    assert "Card đồ họa" not in user_message("RuntimeError: CPU allocator out of memory")
 
 
 @pytest.mark.skipif(os.name != "posix", reason="Colab uses POSIX process-group SIGINT")

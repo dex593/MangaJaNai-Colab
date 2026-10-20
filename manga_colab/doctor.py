@@ -8,13 +8,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-from rich import box
-from rich.table import Table
-from rich.text import Text
-
 from .config import UPSTREAM_COMMIT
-from .display import make_console
+from .display import Card, make_console
 from .gpu import gpu_info
+from .logger import user_message
 from .model_manager import ModelManager
 from .storage import probe_directory
 
@@ -28,30 +25,25 @@ def doctor(
     cuda_device: int = 0,
 ) -> int:
     console = make_console()
-    table = Table(
-        title="MANGA JANAI  /  KIỂM TRA MÔI TRƯỜNG",
-        title_justify="left",
-        box=box.SIMPLE,
-        padding=(0, 1),
-    )
-    table.add_column("Hạng mục", style="cyan", no_wrap=True)
-    table.add_column("Trạng thái", no_wrap=True)
-    table.add_column("Chi tiết", overflow="fold")
-    errors = 0
+    results: list[tuple[str, str]] = []
+    failures: list[tuple[str, str]] = []
+    gpu_name = ""
 
     def check(name: str, operation) -> None:
-        nonlocal errors
         try:
             value = operation()
-            table.add_row(name, Text("✓ OK", style="green"), Text(str(value)))
+            results.append((name, f"Đạt · {value}"))
         except Exception as exc:
-            errors += 1
-            table.add_row(name, Text("✗ LỖI", style="red"), Text(f"{type(exc).__name__}: {exc}"))
+            message = f"{type(exc).__name__}: {exc}"
+            failures.append((name, user_message(message)))
+            results.append((name, message))
 
     check("Python", lambda: f"{sys.version.split()[0]} · {platform.system()}\n{sys.executable}")
 
     def gpu_details() -> str:
+        nonlocal gpu_name
         info = gpu_info(cuda_device, required=True)
+        gpu_name = info["name"]
         return (
             f"{info['name']} · CUDA {info['cuda']} · PyTorch {info['torch']}\n"
             f"VRAM {info['free']/2**30:.2f} / {info['total']/2**30:.2f} GiB trống\n"
@@ -127,11 +119,15 @@ def doctor(
             if Path("/content/drive").is_mount()
             else (_ for _ in ()).throw(OSError("Chưa kết nối Drive; chạy lại Bước 2")),
         )
-    for label, path in (("Input", input_path), ("Output", output), ("Models", models)):
+    for label, path in (
+        ("Thư mục ảnh gốc", input_path),
+        ("Thư mục lưu kết quả", output),
+        ("Thư mục lưu Model upscale", models),
+    ):
         if path:
 
             def directory(path=path, label=label):
-                probe_directory(path, write=label != "Input")
+                probe_directory(path, write=label != "Thư mục ảnh gốc")
                 return f"{path}\nDung lượng trống: {shutil.disk_usage(path).free / 2**30:.2f} GiB"
 
             check(label, directory)
@@ -160,9 +156,25 @@ def doctor(
             return f"{count} model load bằng Spandrel thành công"
 
         check("Model đã tải", validate_models)
-    console.print(table)
     console.print(
-        "Môi trường sẵn sàng." if not errors else f"Cần sửa {errors} mục lỗi ở trên.",
-        style="green" if not errors else "red",
+        Card(
+            "Máy đã sẵn sàng" if not failures else "Cần kiểm tra trước khi Upscale",
+            metrics=[("Kiểm tra đạt", len(results) - len(failures)), ("Cần xử lý", len(failures))],
+            rows=failures
+            or [
+                ("Card đồ họa", gpu_name),
+                ("Chương trình", "Đã kiểm tra các thành phần cần thiết"),
+                *(
+                    [("Thư mục", "Đọc và lưu được ở các thư mục đã chọn")]
+                    if input_path or output or models
+                    else []
+                ),
+            ],
+            details=results,
+            note="Tiếp theo: chạy Bước 5 để Upscale."
+            if not failures
+            else "Sửa các mục phía trên rồi chạy lại Bước 4. Chi tiết kỹ thuật nằm trong phần mở rộng.",
+            tone="red" if failures else "green",
+        )
     )
-    return 2 if errors else 0
+    return 2 if failures else 0

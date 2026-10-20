@@ -39,7 +39,8 @@ def gpu_info(index: int = 0, required: bool = False) -> dict[str, Any]:
     if not result["available"]:
         if required:
             raise RuntimeError(
-                "Colab chưa có GPU CUDA. Chọn Runtime → Change runtime type → GPU rồi chạy lại."
+                "Colab chưa có GPU CUDA. Chọn Runtime (Thời gian chạy) → "
+                "Change runtime type (Thay đổi loại thời gian chạy) → GPU rồi chạy lại."
             )
         return result
     if index >= torch.cuda.device_count():

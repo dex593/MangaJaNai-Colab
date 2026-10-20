@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from collections import deque
 from pathlib import Path
 
 from rich.console import Console
-from rich.console import Group
-from rich.panel import Panel
 from rich.progress import (
     BarColumn,
     DownloadColumn,
@@ -18,10 +17,9 @@ from rich.progress import (
     TransferSpeedColumn,
     MofNCompleteColumn,
 )
-from rich.table import Table
 from rich.text import Text
 
-from .display import AppProgress, NotebookConsole, make_console, model_label
+from .display import AppProgress, Card, NotebookConsole, make_console, model_label
 
 
 def error_message(exc: Exception) -> str:
@@ -33,11 +31,46 @@ def error_message(exc: Exception) -> str:
     return " ← ".join(parts)
 
 
+def user_message(message: str) -> str:
+    lowered = message.lower()
+    for match, help_text in (
+        (
+            "cuda out of memory",
+            "Card đồ họa không đủ bộ nhớ. Dừng các tác vụ khác đang dùng GPU rồi chạy lại.",
+        ),
+        (
+            "cuda oom",
+            "Card đồ họa không đủ bộ nhớ để xử lý ảnh này. Thử lại trên GPU có nhiều bộ nhớ hơn.",
+        ),
+        (
+            "out of memory",
+            "Không đủ bộ nhớ để xử lý ảnh này. Xem chi tiết lỗi bên dưới để biết bộ nhớ nào đã hết.",
+        ),
+        ("no space left", "Đã hết dung lượng lưu trữ. Dọn bớt tệp ở nơi lưu kết quả rồi chạy lại."),
+        ("transport endpoint", "Kết nối Google Drive bị gián đoạn. Chạy lại Bước 2 rồi Bước 5."),
+        (
+            "permission denied",
+            "Không có quyền đọc hoặc lưu tệp. Kiểm tra quyền của thư mục trên Drive.",
+        ),
+        (
+            "not a known file format",
+            "Không đọc được ảnh. Tệp có thể bị hỏng hoặc định dạng chưa được hỗ trợ. Thử mở ảnh gốc rồi tải lại lên Drive.",
+        ),
+        (
+            "cannot identify image file",
+            "Không đọc được ảnh. Thử mở ảnh gốc để kiểm tra và tải lại lên Drive.",
+        ),
+    ):
+        if match in lowered:
+            return help_text
+    return re.sub(r"\b(?:[A-Za-z_]\w*)?(?:Error|Exception):\s*", "", message)
+
+
 class AppLogHandler(logging.Handler):
     def __init__(self, console: Console) -> None:
         super().__init__()
         self.console = console
-        self.recent: deque[Text] = deque(maxlen=8)
+        self.recent: deque[tuple[str, str]] = deque(maxlen=5)
 
     def emit(self, record: logging.LogRecord) -> None:
         style = (
@@ -45,16 +78,23 @@ class AppLogHandler(logging.Handler):
             if record.levelno >= logging.ERROR
             else ("yellow" if record.levelno >= logging.WARNING else "default")
         )
-        text = Text(record.getMessage(), style=style)
+        message = user_message(record.getMessage())
+        text = Text(message, style=style)
         if isinstance(self.console, NotebookConsole):
-            self.recent.append(text)
+            label = (
+                "Cần kiểm tra"
+                if record.levelno >= logging.ERROR
+                else ("Lưu ý" if record.levelno >= logging.WARNING else "Thông tin")
+            )
+            self.recent.append((label, message))
             self.console.frame(
                 "activity",
-                Panel(
-                    Group(*self.recent),
-                    title="Hoạt động gần đây",
-                    title_align="left",
-                    border_style="dim",
+                Card(
+                    "Thông báo",
+                    rows=list(self.recent),
+                    tone="red"
+                    if record.levelno >= logging.ERROR
+                    else ("yellow" if record.levelno >= logging.WARNING else "blue"),
                 ),
             )
         else:
@@ -76,8 +116,8 @@ def configure(path: Path, level: str) -> tuple[Console, logging.Logger]:
     display.setLevel(
         {
             "quiet": logging.ERROR,
-            "normal": logging.INFO,
-            "verbose": logging.DEBUG,
+            "normal": logging.WARNING,
+            "verbose": logging.INFO,
             "debug": logging.DEBUG,
         }[level]
     )
@@ -85,21 +125,14 @@ def configure(path: Path, level: str) -> tuple[Console, logging.Logger]:
     return console, logger
 
 
-def dashboard(console: Console, values: dict) -> None:
-    table = Table.grid(padding=(0, 2))
-    table.add_column(style="dim", no_wrap=True)
-    table.add_column(overflow="fold")
-    for key, value in values.items():
-        table.add_row(key, Text(str(value)))
+def dashboard(console: Console, values: dict, counts: dict, technical: dict) -> None:
     console.print(
-        Panel(
-            table,
-            title="MANGA JANAI  /  COLAB",
-            subtitle="UPSCALE MANGA",
-            title_align="left",
-            subtitle_align="right",
-            padding=(1, 2),
-            border_style="cyan",
+        Card(
+            "2 · Chuẩn bị Upscale",
+            rows=list(values.items()),
+            metrics=list(counts.items()),
+            details=list(technical.items()),
+            note="Ảnh đã làm xong và còn hợp lệ sẽ được giữ lại khi chọn chỉ làm ảnh mới.",
         )
     )
 
@@ -114,20 +147,20 @@ def download_progress(console: Console, quiet: bool = False) -> Progress:
         console=console,
         disable=quiet,
         refresh_per_second=2,
-        title="Tải bộ AI",
+        title="Tải model còn thiếu · Lần sau sẽ dùng lại",
     )
 
 
 def scan_progress(console: Console, quiet: bool = False) -> AppProgress:
     return AppProgress(
-        TextColumn("Quét ảnh", style="cyan"),
+        TextColumn("Kiểm tra ảnh", style="cyan"),
         BarColumn(),
         MofNCompleteColumn(),
         TextColumn("ảnh"),
         console=console,
         disable=quiet,
         refresh_per_second=2,
-        title="Đọc ảnh và kiểm tra danh sách",
+        title="1 · Tìm ảnh trong thư mục",
     )
 
 
@@ -143,32 +176,45 @@ class BatchProgress:
             console=console,
             disable=quiet or total == 0,
             refresh_per_second=2,
-            title="Tiến độ Upscale",
+            title="3 · Đang Upscale",
         )
-        self.overall = self.progress.add_task("Toàn lượt", total=total, detail=f"0/{total} ảnh")
-        self.current = self.progress.add_task("Ảnh hiện tại", total=1, detail="Chờ xử lý")
+        self.overall = self.progress.add_task(
+            "Tiến độ toàn bộ", total=total, detail=f"0/{total} ảnh", eta=True
+        )
+        self.current = self.progress.add_task("AI xử lý ảnh hiện tại", total=1, detail="Chờ xử lý")
         self.started = time.monotonic()
         self.done = 0
         self.successful = 0
         self.total = total
 
     def image(
-        self, index: int, source: str, width: int, height: int, grayscale: bool, model: str
+        self,
+        index: int,
+        source: str,
+        width: int,
+        height: int,
+        grayscale: bool,
+        model: str,
+        scale: float = 2,
     ) -> None:
-        details = Table.grid(padding=(0, 2))
-        details.add_column(style="dim", no_wrap=True)
-        details.add_column(overflow="fold")
-        details.add_row("Ảnh", Text(f"{index}/{self.total}  {source}", style="bold"))
-        details.add_row(
-            "Ảnh gốc", f"{width:,} × {height:,} px · {'Đen trắng' if grayscale else 'Màu'}"
+        target_height = round(height * scale)
+        target_width = round(width * target_height / height)
+        self.progress.heading = Card(
+            "Ảnh đang xử lý",
+            rows=[
+                ("Ảnh đang làm", f"{index}/{self.total} · {source}"),
+                ("Kích thước", f"{width} × {height} → {target_width} × {target_height} px"),
+                ("Loại ảnh", "Đen trắng" if grayscale else "Ảnh màu"),
+                ("Model", model_label(model)),
+            ],
         )
-        details.add_row("Model", model_label(model))
-        details.add_row("Tệp AI", "Đã tải và kiểm tra")
-        self.progress.heading = details
-        self.progress.reset(self.current, total=1, detail="Chuẩn bị")
+        self.progress.reset(self.current, total=1, detail="Chuẩn bị", failed=False)
 
     def update(self, done: int, total: int, stage: str) -> None:
-        self.progress.update(self.current, completed=done, total=total, detail=stage)
+        if stage.startswith(("Hoàn thiện", "Đã lưu")):
+            self.progress.update(self.current, detail="Đang lưu và kiểm tra ảnh kết quả")
+        else:
+            self.progress.update(self.current, completed=done, total=total, detail=stage)
 
     def advance(self, success: bool = True) -> None:
         self.done += 1
@@ -176,10 +222,15 @@ class BatchProgress:
         rate = self.successful / max(time.monotonic() - self.started, 0.001)
         self.progress.update(
             self.current,
-            completed=1,
-            total=1,
-            detail="Đã lưu và kiểm tra kết quả" if success else "Lỗi — xem chi tiết",
+            **({"completed": 1, "total": 1} if success else {}),
+            failed=not success,
+            detail="Đã lưu và kiểm tra kết quả"
+            if success
+            else "Ảnh chưa hoàn tất · xem nguyên nhân",
         )
         self.progress.update(
-            self.overall, advance=1, detail=f"{self.done}/{self.total} ảnh · {rate:.3f} ảnh/s"
+            self.overall,
+            advance=1,
+            detail=f"{self.done}/{self.total} ảnh · Đã lưu {self.successful} · "
+            f"Lỗi {self.done - self.successful} · {rate * 60:.1f} ảnh/phút",
         )

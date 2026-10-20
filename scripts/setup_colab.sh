@@ -7,9 +7,9 @@ import sys
 import torch
 import torchvision
 if not (3, 11) <= sys.version_info[:2] < (3, 13):
-    raise SystemExit("chainner_ext 0.3.10 chưa hỗ trợ Python 3.13. Chọn Runtime → Change runtime type → Runtime Version 2026.07 (Python 3.12), GPU, rồi chạy lại. Không tự thay Python/PyTorch của runtime.")
+    raise SystemExit("chainner_ext 0.3.10 chưa hỗ trợ Python 3.13. Chọn Runtime (Thời gian chạy) → Change runtime type (Thay đổi loại thời gian chạy) → Runtime Version 2026.07 (Python 3.12), GPU, rồi chạy lại. Không tự thay Python/PyTorch của runtime.")
 if not torch.cuda.is_available():
-    raise SystemExit("Chưa có CUDA GPU. Colab: Runtime → Change runtime type → GPU.")
+    raise SystemExit("Chưa có CUDA GPU. Colab: Runtime (Thời gian chạy) → Change runtime type (Thay đổi loại thời gian chạy) → GPU.")
 print("Giữ nguyên runtime:", sys.version, torch.__version__, torchvision.__version__, torch.version.cuda)
 PY
 # An overlay keeps Colab's CUDA/PyTorch installation intact.
